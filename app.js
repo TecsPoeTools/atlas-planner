@@ -95,6 +95,7 @@ function runOpt(terms, ban, budget) {
 // ---------- rebuild ----------
 async function rebuild() {
   const my = ++latestTree;
+  viewAt = Infinity; // the tree changed: show all of it again instead of staying on an old step
   previewCache.clear(); preview = null;
   if (smart) {
     $('busy').hidden = false;
@@ -110,8 +111,6 @@ async function rebuild() {
     alloc = new Set([...START, ...targets]); unreachable = new Set();
     computeManualOrder();
   }
-  const max = used();
-  if (viewAt !== Infinity && viewAt > max) viewAt = Infinity;
   save(); syncScrub(); renderSide(); renderBudget(); updateUndo(); renderCompare(); draw();
   if (hover) setHover(hover, lastPt, true);
 }
