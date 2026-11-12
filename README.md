@@ -14,7 +14,7 @@ Built for the 3.30 atlas (150 points this league).
 and it becomes a target. Every time you add or drop one, the whole tree is
 rebuilt from scratch with as few points as possible. When two routes cost the
 same, it goes through the small nodes you find useful (map drop chance, pack
-size and so on; you pick them under *Plan → Path preferences*).
+size and so on; you pick them under *⋯ → Path preferences*).
 
 **Or path it yourself.** Switch *Pathing* to *Manual* and it works like in game:
 each click takes the shortest path from what you already have, and clicking an

@@ -373,7 +373,6 @@ function statLines(id) {
 }
 
 // ---------- side panel ----------
-let tab = 'plan';
 function renderBudget() {
   const u = used(), el = $('budget'), over = u - MAXP;
   el.textContent = over > 0 ? `${over} point${over > 1 ? 's' : ''} over budget` : `${MAXP - u} points left`;
@@ -388,22 +387,21 @@ function renderSide() {
   $('barfill').style.width = Math.min(100, vu / MAXP * 100) + '%';
   $('barfill').parentElement.classList.toggle('over', u > MAXP);
   $('meta').innerHTML = `<span><b>${targets.length}</b> targets</span>` + (blocked.size ? `<span><b>${blocked.size}</b> blocked</span>` : '') + (viewAt !== Infinity ? `<span>of <b>${u}</b></span>` : '');
-  renderPlan(); renderMods();
+  renderNotes(); renderMods();
 }
-function renderPlan() {
+// Notes above the modifiers: unreachable targets, or how to start.
+function renderNotes() {
   let h = '';
   if (unreachable.size) h += `<h3>Unreachable</h3><div class="warn">${[...unreachable].map(i => esc(N[i].nm)).join(', ')} cannot be reached with the current blocks.</div>`;
   if (!targets.length) h += smart ? `<div class="empty">Click nodes on the atlas to add targets. The cheapest tree that reaches all of them is rebuilt each time. Step through the order with ‹ › above.</div>`
     : `<div class="empty">Manual pathing: click a node to take the shortest path to it from what you have, like in game. Click an allocated node to refund it.</div>`;
-  // path preferences
-  if (!smart) { $('pane-plan').innerHTML = h; return; }
+  $('notes').innerHTML = h;
+}
+function renderPrefs() {
   const smalls = {};
   for (const id of ids) if (N[id].t === 'p') smalls[N[id].nm] = (smalls[N[id].nm] || 0) + 1;
   const names = Object.keys(smalls).sort((a, b) => (GENERIC_SMALLS.includes(b) - GENERIC_SMALLS.includes(a)) || smalls[b] - smalls[a]);
-  h += `<details class="prefs" id="prefsbox"${store.get('atlas-prefs-open') === '1' ? ' open' : ''}><summary>Path preferences</summary>
-    <p>When two routes cost the same number of points, the planner takes the one that passes through more of these small passives.</p>
-    <div class="chips">${names.map((nm, i) => `<label><input type="checkbox" id="pf${i}" data-nm="${esc(nm)}" ${prefs.has(nm) ? 'checked' : ''}>${esc(nm)} <em>${smalls[nm]}</em></label>`).join('')}</div></details>`;
-  $('pane-plan').innerHTML = h;
+  $('prefchips').innerHTML = names.map((nm, i) => `<label><input type="checkbox" id="pf${i}" data-nm="${esc(nm)}" ${prefs.has(nm) ? 'checked' : ''}>${esc(nm)} <em>${smalls[nm]}</em></label>`).join('');
 }
 function renderMods() {
   const ea = effAlloc();
@@ -418,7 +416,7 @@ function renderMods() {
     }
   }
   let h = '';
-  if (!used(ea)) h += `<div class="empty">No points allocated${viewAt !== Infinity ? ' at this point count' : ''}.</div>`;
+  if (!used(ea) && targets.length) h += `<div class="empty">No points allocated${viewAt !== Infinity ? ' at this point count' : ''}.</div>`;
   if (ks.length) {
     h += `<h3>Keystones <span>${ks.length}</span></h3>`;
     for (const id of ks) h += `<div class="ks"><b>${esc(N[id].nm)}</b>${statLines(id).map(s => `<div>${esc(s)}</div>`).join('')}</div>`;
@@ -432,10 +430,6 @@ function renderMods() {
     for (const [t, a] of rows) h += `<div class="mod"><span>${esc(t.replace(/\u0000(\d+)\u0000/g, (_, i) => fmt(a.vals[+i])))}</span>${a.n > 1 ? `<em>×${a.n}</em>` : ''}</div>`;
   }
   $('pane-mods').innerHTML = h;
-}
-function setTab(t) {
-  tab = t;
-  for (const x of ['plan', 'mods']) { $('tab-' + x).setAttribute('aria-selected', x === t); $('pane-' + x).hidden = x !== t; }
 }
 function syncScrub() {
   const s = $('at'), u = used(), st = steps();
@@ -476,8 +470,6 @@ function step(dir) {
 }
 
 // side panel events
-$('tab-plan').onclick = () => setTab('plan');
-$('tab-mods').onclick = () => setTab('mods');
 $('at').addEventListener('input', e => setViewAt(+e.target.value));
 $('stprev').onclick = () => step(-1);
 $('stnext').onclick = () => step(1);
@@ -485,12 +477,12 @@ $('pane-mods').addEventListener('change', e => {
   const t = e.target; if (!t.dataset.id) return;
   commit(() => { choice[t.dataset.id] = +t.dataset.i; });
 });
-$('pane-plan').addEventListener('change', e => {
+$('prefchips').addEventListener('change', e => {
   const t = e.target; if (!t.dataset.nm) return;
   if (t.checked) prefs.add(t.dataset.nm); else prefs.delete(t.dataset.nm);
   setupOptimizer(); rebuild();
 });
-$('pane-plan').addEventListener('toggle', e => { if (e.target.id === 'prefsbox') store.set('atlas-prefs-open', e.target.open ? '1' : '0'); }, true);
+$('prefsbtn').onclick = () => { menu.hidden = true; renderPrefs(); $('prefsdlg').showModal(); };
 const side = $('side');
 side.querySelector('.shd').addEventListener('click', e => { if (window.matchMedia('(max-width: 900px)').matches && !e.target.closest('input, button')) side.classList.toggle('open'); });
 
