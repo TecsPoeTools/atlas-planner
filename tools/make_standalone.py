@@ -7,7 +7,7 @@ Usage: python tools/make_standalone.py [out.html] [--fragment]
 import base64, json, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-IMG = {'on': 'atlas-skills', 'off': 'atlas-skills-disabled', 'mas': 'atlas-mastery', 'fr': 'atlas-frame', 'gb': 'atlas-group-background'}
+IMG = {'on': 'atlas-skills', 'off': 'atlas-skills-disabled', 'mas': 'atlas-mastery', 'fr': 'atlas-frame', 'gb': 'atlas-group-background', 'bg': 'atlas-background'}
 rd = lambda p: open(os.path.join(ROOT, p), encoding='utf-8').read()
 
 def main():

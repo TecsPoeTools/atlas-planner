@@ -133,6 +133,9 @@ def main():
         print(mode, len(data['nodes']), 'nodes,', len(data['edges']), 'edges')
     for key, base in SHEETS.items():
         shutil.copy(os.path.join(src, 'assets', base + '-4.webp'), os.path.join(ROOT, 'assets', base + '.webp'))
+    # The map background art: the mid zoom level is plenty for a blurry backdrop and keeps the offline file small.
+    bg = os.path.join(src, 'assets', 'atlas-background-2.webp')
+    if os.path.exists(bg): shutil.copy(bg, os.path.join(ROOT, 'assets', 'atlas-background.webp'))
     with open(os.path.join(ROOT, 'data', 'version.json'), 'w') as f:
         json.dump({'version': version}, f)
     print('version', version)
