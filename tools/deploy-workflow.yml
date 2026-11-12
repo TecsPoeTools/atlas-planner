@@ -1,0 +1,75 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * 1' # Mondays: pick up new atlas data from GGG
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch latest atlas export from GGG
+        id: ggg
+        continue-on-error: true
+        run: |
+          TAG=$(git ls-remote --tags --refs --sort=-v:refname https://github.com/grindinggear/atlastree-export.git | head -n1 | sed 's#.*refs/tags/##')
+          echo "Latest GGG tag: $TAG"
+          git clone --depth 1 --branch "$TAG" https://github.com/grindinggear/atlastree-export.git ggg
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Rebuild data
+        if: steps.ggg.outcome == 'success'
+        run: |
+          python tools/build_data.py ggg --version "${{ steps.ggg.outputs.tag }}"
+          python tools/make_standalone.py atlas-tree.html
+
+      - name: Commit updated data
+        if: steps.ggg.outcome == 'success'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data assets atlas-tree.html
+          if git diff --cached --quiet; then echo "Data unchanged"; else
+            git commit -m "Update atlas data to ${{ steps.ggg.outputs.tag }}"
+            git push
+          fi
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp atlas-tree.html index.html style.css app.js optimizer.js _site/
+          cp -r data assets _site/
+          touch _site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

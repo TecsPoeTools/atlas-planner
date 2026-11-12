@@ -1,0 +1,6 @@
+dist/
+_site/
+ggg/
+__pycache__/
+*.pyc
+.DS_Store

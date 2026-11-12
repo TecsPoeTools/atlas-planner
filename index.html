@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Atlas Tree 3.30</title>
+<meta name="description" content="Path of Exile atlas passive tree planner: pick the notables you want and the cheapest tree is found automatically.">
+<meta name="repo" content="">
+<!--STANDALONE_HEAD-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Fira+Sans:ital,wght@0,400;0,500;1,400&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Atlas Tree <small id="ver">3.30</small></h1>
+  <div class="seg" role="group" aria-label="Game mode">
+    <button id="m-league" type="button" aria-pressed="true">League</button>
+    <button id="m-ruthless" type="button" aria-pressed="false">Ruthless</button>
+  </div>
+  <div class="search">
+    <input id="q" type="search" placeholder="Search nodes  ( / )" autocomplete="off" aria-label="Search nodes">
+    <span class="hits" id="hits"></span>
+  </div>
+  <label class="focus"><span>Focus</span>
+    <select id="focus" aria-label="Focus on a mechanic"><option value="">Everything</option></select>
+  </label>
+  <div class="btns">
+    <button id="undo" type="button" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+    <button id="redo" type="button" title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
+    <button id="block" type="button" aria-pressed="false" title="While on, clicks block nodes so paths avoid them (B)">Block</button>
+    <button id="copy" type="button" title="Copy a link to this tree">Copy link</button>
+    <button id="more" type="button" aria-haspopup="true" aria-expanded="false" title="More">⋯</button>
+  </div>
+  <div class="menu" id="menu" hidden>
+    <button id="fit" type="button">Fit to screen <kbd>F</kbd></button>
+    <button id="theme" type="button">Theme: System</button>
+    <button id="help" type="button">Shortcuts &amp; help <kbd>?</kbd></button>
+    <a id="offline" class="mi" href="atlas-tree.html" download>Download offline copy</a>
+    <button id="reset" type="button" class="danger">Reset tree</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <main>
+    <canvas id="c" aria-label="Atlas passive tree"></canvas>
+    <div id="tip" hidden></div>
+    <div id="toast" role="status" hidden></div>
+    <div class="budget" id="budget"></div>
+    <div class="busy" id="busy" hidden>optimizing…</div>
+  </main>
+
+  <aside id="side" aria-label="Plan and modifiers">
+    <div class="shd">
+      <div class="ptsrow">
+        <div class="pts" id="pts">0 <span>/ 138</span></div>
+        <div class="meta" id="meta"></div>
+      </div>
+      <div class="bar"><i id="barfill"></i></div>
+      <div class="scrub">
+        <label for="at">View at point</label>
+        <input id="at" type="range" min="0" max="0" value="0">
+        <output id="atv">all</output>
+      </div>
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tab-plan" aria-selected="true" aria-controls="pane-plan">Plan</button>
+        <button role="tab" id="tab-mods" aria-selected="false" aria-controls="pane-mods">Modifiers</button>
+      </div>
+    </div>
+    <div class="sbody">
+      <section id="pane-plan" role="tabpanel"></section>
+      <section id="pane-mods" role="tabpanel" hidden></section>
+    </div>
+  </aside>
+</div>
+
+<footer>
+  <span>Fan-made tool, not affiliated with Grinding Gear Games. Atlas data and art from GGG's public atlas tree export.</span>
+  <a id="repo" href="#" hidden>Source</a>
+</footer>
+
+<dialog id="helpdlg">
+  <h2>How it works</h2>
+  <p><b>Click</b> a node to make it a target. The cheapest tree that reaches every target is rebuilt each time. When two routes cost the same, it takes the one with more of your preferred small passives (Plan tab → Path preferences).</p>
+  <p><b>Click a target</b> to drop it. <b>Click a node on the path</b> to pin it. <b>Right-click</b> (or Block mode) blocks a node so paths avoid it.</p>
+  <p>The <b>Plan</b> tab lists targets in the order you will level them. Drag or use the arrows to reorder; point numbers update. Drag the <b>View at point</b> slider to see the tree at any point count.</p>
+  <table>
+    <tr><td><kbd>/</kbd></td><td>Search</td><td><kbd>F</kbd></td><td>Fit to screen</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Undo</td><td><kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Redo</td></tr>
+    <tr><td><kbd>B</kbd></td><td>Block mode</td><td><kbd>O</kbd></td><td>Point numbers on tree</td></tr>
+    <tr><td><kbd>M</kbd></td><td>League / Ruthless</td><td><kbd>Esc</kbd></td><td>Clear search / close</td></tr>
+  </table>
+  <form method="dialog"><button>Close</button></form>
+</dialog>
+
+<script id="optimizer-js" src="optimizer.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
