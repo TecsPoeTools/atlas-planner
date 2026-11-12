@@ -36,6 +36,7 @@
   </div>
   <div class="menu" id="menu" hidden>
     <button id="trees" type="button">Saved trees &amp; import…</button>
+    <button id="prefsbtn" type="button">Path preferences…</button>
     <button id="fit" type="button">Fit to screen <kbd>F</kbd></button>
     <button id="theme" type="button">Theme: System</button>
     <button id="help" type="button">Shortcuts &amp; help <kbd>?</kbd></button>
@@ -55,7 +56,7 @@
     <div class="cmpbar" id="cmpbar" role="status" hidden></div>
   </main>
 
-  <aside id="side" aria-label="Plan and modifiers">
+  <aside id="side" aria-label="Points and modifiers">
     <div class="shd">
       <div class="ptsrow">
         <div class="pts" id="pts">0 <span>/ 138</span></div>
@@ -70,14 +71,10 @@
         <output id="atv">all</output>
       </div>
       <div class="stepinfo" id="stepinfo" hidden></div>
-      <div class="tabs" role="tablist">
-        <button role="tab" id="tab-plan" aria-selected="true" aria-controls="pane-plan">Plan</button>
-        <button role="tab" id="tab-mods" aria-selected="false" aria-controls="pane-mods">Modifiers</button>
-      </div>
     </div>
     <div class="sbody">
-      <section id="pane-plan" role="tabpanel"></section>
-      <section id="pane-mods" role="tabpanel" hidden></section>
+      <div id="notes"></div>
+      <section id="pane-mods" aria-label="Modifiers"></section>
     </div>
   </aside>
 </div>
@@ -89,7 +86,7 @@
 
 <dialog id="helpdlg">
   <h2>How it works</h2>
-  <p><b>Click</b> a node to make it a target. The cheapest tree that reaches every target is rebuilt each time. When two routes cost the same, it takes the one with more of your preferred small passives (Plan tab → Path preferences).</p>
+  <p><b>Click</b> a node to make it a target. The cheapest tree that reaches every target is rebuilt each time. When two routes cost the same, it takes the one with more of your preferred small passives (⋯ → Path preferences).</p>
   <p><b>Click a target</b> to drop it. <b>Click a node on the path</b> to pin it. <b>Right-click</b> (or Block mode) blocks a node so paths avoid it.</p>
   <p>Prefer the in-game feel? Switch <b>Pathing</b> to <b>Manual</b>: each click takes the shortest path from what you have, and clicking an allocated node refunds it and anything cut off.</p>
   <p>Notables with a choice of effects open a picker when you click them; the summary shows only the effect you chose. Click the notable again to change it.</p>
@@ -102,6 +99,13 @@
     <tr><td><kbd>P</kbd></td><td>Smart / manual pathing</td><td><kbd>Esc</kbd></td><td>Clear search / close</td></tr>
     <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Step through the order</td><td><kbd>Home</kbd></td><td>Show the whole tree</td></tr>
   </table>
+  <form method="dialog"><button>Close</button></form>
+</dialog>
+
+<dialog id="prefsdlg" aria-labelledby="prefsh">
+  <h2 id="prefsh">Path preferences</h2>
+  <p class="hint">When two routes cost the same number of points, smart pathing takes the one that passes through more of these small passives.</p>
+  <div class="chips" id="prefchips"></div>
   <form method="dialog"><button>Close</button></form>
 </dialog>
 

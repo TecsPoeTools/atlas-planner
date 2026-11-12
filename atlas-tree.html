@@ -117,7 +117,7 @@ canvas.drag { cursor: grabbing; } canvas.over { cursor: pointer; }
 
 /* sidebar */
 aside { width: 350px; flex: none; background: var(--panel); border-left: 1px solid var(--edge); display: flex; flex-direction: column; min-height: 0; }
-.shd { padding: 12px 16px 0; border-bottom: 1px solid var(--edge); display: flex; flex-direction: column; gap: 8px; }
+.shd { padding: 12px 16px; border-bottom: 1px solid var(--edge); display: flex; flex-direction: column; gap: 8px; }
 .ptsrow { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .pts { font-family: var(--display); font-size: 1.5rem; font-variant-numeric: tabular-nums; color: var(--gold); line-height: 1; }
 .pts span { font-size: .9rem; color: var(--muted); }
@@ -130,9 +130,6 @@ aside { width: 350px; flex: none; background: var(--panel); border-left: 1px sol
 .scrub { display: grid; grid-template-columns: auto auto 1fr auto 3.2em; align-items: center; gap: 8px; font-size: .74rem; color: var(--muted); }
 .scrub input { width: 100%; accent-color: var(--gold); }
 .scrub output { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
-.tabs { display: flex; gap: 2px; margin-top: 2px; }
-.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 10px; font-family: var(--display); font-weight: 700; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.tabs button[aria-selected=true] { color: var(--gold); border-bottom-color: var(--gold); }
 .sbody { overflow-y: auto; padding: 6px 16px 24px; flex: 1; min-height: 0; }
 .sbody h3 { font-family: var(--display); font-size: .76rem; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); margin: 16px 0 6px; font-weight: 700; display: flex; justify-content: space-between; gap: 8px; }
 .sbody h3 span { font-family: var(--body); color: var(--muted); letter-spacing: 0; text-transform: none; font-weight: 400; }
@@ -140,9 +137,6 @@ aside { width: 350px; flex: none; background: var(--panel); border-left: 1px sol
 .warn { color: var(--drop); font-size: .8rem; }
 
 /* plan list */
-details.prefs { margin-top: 18px; border-top: 1px solid var(--edge); padding-top: 10px; }
-details.prefs summary { cursor: pointer; font-family: var(--display); font-size: .76rem; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
-details.prefs p { font-size: .78rem; color: var(--muted); line-height: 1.45; margin: 8px 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .chips label { display: inline-flex; align-items: center; gap: 5px; font-size: .76rem; border: 1px solid var(--edge); border-radius: 999px; padding: 3px 9px 3px 6px; cursor: pointer; }
 .chips label:has(input:checked) { border-color: var(--gold); color: var(--gold); }
@@ -225,6 +219,7 @@ dialog form { text-align: right; }
 .saved .ctl { display: flex; gap: 4px; }
 .saved .ctl button { padding: 3px 8px; font-size: .76rem; }
 @media (max-width: 520px) { .saved li { flex-wrap: wrap; } .saved .ctl { width: 100%; justify-content: flex-end; } }
+#prefsdlg .chips { margin: 4px 0 16px; }
 
 </style>
 </head>
@@ -253,6 +248,7 @@ dialog form { text-align: right; }
   </div>
   <div class="menu" id="menu" hidden>
     <button id="trees" type="button">Saved trees &amp; import…</button>
+    <button id="prefsbtn" type="button">Path preferences…</button>
     <button id="fit" type="button">Fit to screen <kbd>F</kbd></button>
     <button id="theme" type="button">Theme: System</button>
     <button id="help" type="button">Shortcuts &amp; help <kbd>?</kbd></button>
@@ -271,7 +267,7 @@ dialog form { text-align: right; }
     <div class="cmpbar" id="cmpbar" role="status" hidden></div>
   </main>
 
-  <aside id="side" aria-label="Plan and modifiers">
+  <aside id="side" aria-label="Points and modifiers">
     <div class="shd">
       <div class="ptsrow">
         <div class="pts" id="pts">0 <span>/ 138</span></div>
@@ -286,14 +282,10 @@ dialog form { text-align: right; }
         <output id="atv">all</output>
       </div>
       <div class="stepinfo" id="stepinfo" hidden></div>
-      <div class="tabs" role="tablist">
-        <button role="tab" id="tab-plan" aria-selected="true" aria-controls="pane-plan">Plan</button>
-        <button role="tab" id="tab-mods" aria-selected="false" aria-controls="pane-mods">Modifiers</button>
-      </div>
     </div>
     <div class="sbody">
-      <section id="pane-plan" role="tabpanel"></section>
-      <section id="pane-mods" role="tabpanel" hidden></section>
+      <div id="notes"></div>
+      <section id="pane-mods" aria-label="Modifiers"></section>
     </div>
   </aside>
 </div>
@@ -305,7 +297,7 @@ dialog form { text-align: right; }
 
 <dialog id="helpdlg">
   <h2>How it works</h2>
-  <p><b>Click</b> a node to make it a target. The cheapest tree that reaches every target is rebuilt each time. When two routes cost the same, it takes the one with more of your preferred small passives (Plan tab → Path preferences).</p>
+  <p><b>Click</b> a node to make it a target. The cheapest tree that reaches every target is rebuilt each time. When two routes cost the same, it takes the one with more of your preferred small passives (⋯ → Path preferences).</p>
   <p><b>Click a target</b> to drop it. <b>Click a node on the path</b> to pin it. <b>Right-click</b> (or Block mode) blocks a node so paths avoid it.</p>
   <p>Prefer the in-game feel? Switch <b>Pathing</b> to <b>Manual</b>: each click takes the shortest path from what you have, and clicking an allocated node refunds it and anything cut off.</p>
   <p>Notables with a choice of effects open a picker when you click them; the summary shows only the effect you chose. Click the notable again to change it.</p>
@@ -318,6 +310,13 @@ dialog form { text-align: right; }
     <tr><td><kbd>P</kbd></td><td>Smart / manual pathing</td><td><kbd>Esc</kbd></td><td>Clear search / close</td></tr>
     <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Step through the order</td><td><kbd>Home</kbd></td><td>Show the whole tree</td></tr>
   </table>
+  <form method="dialog"><button>Close</button></form>
+</dialog>
+
+<dialog id="prefsdlg" aria-labelledby="prefsh">
+  <h2 id="prefsh">Path preferences</h2>
+  <p class="hint">When two routes cost the same number of points, smart pathing takes the one that passes through more of these small passives.</p>
+  <div class="chips" id="prefchips"></div>
   <form method="dialog"><button>Close</button></form>
 </dialog>
 
@@ -875,7 +874,6 @@ function statLines(id) {
 }
 
 // ---------- side panel ----------
-let tab = 'plan';
 function renderBudget() {
   const u = used(), el = $('budget'), over = u - MAXP;
   el.textContent = over > 0 ? `${over} point${over > 1 ? 's' : ''} over budget` : `${MAXP - u} points left`;
@@ -890,22 +888,21 @@ function renderSide() {
   $('barfill').style.width = Math.min(100, vu / MAXP * 100) + '%';
   $('barfill').parentElement.classList.toggle('over', u > MAXP);
   $('meta').innerHTML = `<span><b>${targets.length}</b> targets</span>` + (blocked.size ? `<span><b>${blocked.size}</b> blocked</span>` : '') + (viewAt !== Infinity ? `<span>of <b>${u}</b></span>` : '');
-  renderPlan(); renderMods();
+  renderNotes(); renderMods();
 }
-function renderPlan() {
+// Notes above the modifiers: unreachable targets, or how to start.
+function renderNotes() {
   let h = '';
   if (unreachable.size) h += `<h3>Unreachable</h3><div class="warn">${[...unreachable].map(i => esc(N[i].nm)).join(', ')} cannot be reached with the current blocks.</div>`;
   if (!targets.length) h += smart ? `<div class="empty">Click nodes on the atlas to add targets. The cheapest tree that reaches all of them is rebuilt each time. Step through the order with ‹ › above.</div>`
     : `<div class="empty">Manual pathing: click a node to take the shortest path to it from what you have, like in game. Click an allocated node to refund it.</div>`;
-  // path preferences
-  if (!smart) { $('pane-plan').innerHTML = h; return; }
+  $('notes').innerHTML = h;
+}
+function renderPrefs() {
   const smalls = {};
   for (const id of ids) if (N[id].t === 'p') smalls[N[id].nm] = (smalls[N[id].nm] || 0) + 1;
   const names = Object.keys(smalls).sort((a, b) => (GENERIC_SMALLS.includes(b) - GENERIC_SMALLS.includes(a)) || smalls[b] - smalls[a]);
-  h += `<details class="prefs" id="prefsbox"${store.get('atlas-prefs-open') === '1' ? ' open' : ''}><summary>Path preferences</summary>
-    <p>When two routes cost the same number of points, the planner takes the one that passes through more of these small passives.</p>
-    <div class="chips">${names.map((nm, i) => `<label><input type="checkbox" id="pf${i}" data-nm="${esc(nm)}" ${prefs.has(nm) ? 'checked' : ''}>${esc(nm)} <em>${smalls[nm]}</em></label>`).join('')}</div></details>`;
-  $('pane-plan').innerHTML = h;
+  $('prefchips').innerHTML = names.map((nm, i) => `<label><input type="checkbox" id="pf${i}" data-nm="${esc(nm)}" ${prefs.has(nm) ? 'checked' : ''}>${esc(nm)} <em>${smalls[nm]}</em></label>`).join('');
 }
 function renderMods() {
   const ea = effAlloc();
@@ -920,7 +917,7 @@ function renderMods() {
     }
   }
   let h = '';
-  if (!used(ea)) h += `<div class="empty">No points allocated${viewAt !== Infinity ? ' at this point count' : ''}.</div>`;
+  if (!used(ea) && targets.length) h += `<div class="empty">No points allocated${viewAt !== Infinity ? ' at this point count' : ''}.</div>`;
   if (ks.length) {
     h += `<h3>Keystones <span>${ks.length}</span></h3>`;
     for (const id of ks) h += `<div class="ks"><b>${esc(N[id].nm)}</b>${statLines(id).map(s => `<div>${esc(s)}</div>`).join('')}</div>`;
@@ -934,10 +931,6 @@ function renderMods() {
     for (const [t, a] of rows) h += `<div class="mod"><span>${esc(t.replace(/\u0000(\d+)\u0000/g, (_, i) => fmt(a.vals[+i])))}</span>${a.n > 1 ? `<em>×${a.n}</em>` : ''}</div>`;
   }
   $('pane-mods').innerHTML = h;
-}
-function setTab(t) {
-  tab = t;
-  for (const x of ['plan', 'mods']) { $('tab-' + x).setAttribute('aria-selected', x === t); $('pane-' + x).hidden = x !== t; }
 }
 function syncScrub() {
   const s = $('at'), u = used(), st = steps();
@@ -978,8 +971,6 @@ function step(dir) {
 }
 
 // side panel events
-$('tab-plan').onclick = () => setTab('plan');
-$('tab-mods').onclick = () => setTab('mods');
 $('at').addEventListener('input', e => setViewAt(+e.target.value));
 $('stprev').onclick = () => step(-1);
 $('stnext').onclick = () => step(1);
@@ -987,12 +978,12 @@ $('pane-mods').addEventListener('change', e => {
   const t = e.target; if (!t.dataset.id) return;
   commit(() => { choice[t.dataset.id] = +t.dataset.i; });
 });
-$('pane-plan').addEventListener('change', e => {
+$('prefchips').addEventListener('change', e => {
   const t = e.target; if (!t.dataset.nm) return;
   if (t.checked) prefs.add(t.dataset.nm); else prefs.delete(t.dataset.nm);
   setupOptimizer(); rebuild();
 });
-$('pane-plan').addEventListener('toggle', e => { if (e.target.id === 'prefsbox') store.set('atlas-prefs-open', e.target.open ? '1' : '0'); }, true);
+$('prefsbtn').onclick = () => { menu.hidden = true; renderPrefs(); $('prefsdlg').showModal(); };
 const side = $('side');
 side.querySelector('.shd').addEventListener('click', e => { if (window.matchMedia('(max-width: 900px)').matches && !e.target.closest('input, button')) side.classList.toggle('open'); });
 
