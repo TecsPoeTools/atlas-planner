@@ -5,7 +5,11 @@
 
 // ---------- constants ----------
 const SC = 2; // sprites are from the 0.5 zoom sheet: world size = px / 0.5
-const IMG_FILES = { on: 'atlas-skills', off: 'atlas-skills-disabled', mas: 'atlas-mastery', fr: 'atlas-frame', gb: 'atlas-group-background' };
+const IMG_FILES = { on: 'atlas-skills', off: 'atlas-skills-disabled', mas: 'atlas-mastery', fr: 'atlas-frame', gb: 'atlas-group-background', bg: 'atlas-background' };
+// GGG's atlas background art, centred on the start node and scaled so its outer ring frames the tree like in game.
+const BG_SIZE = 14800;
+const BG_BRIGHT = 0.85; // a touch darker than the art, so nodes and paths stay the brightest thing
+const BG_FILL = `rgb(${[10, 11, 20].map(c => Math.round(c * BG_BRIGHT)).join(',')})`; // colour at the art's edge
 // Points available this league. GGG's export still says 138; set to 0 to use the export's value.
 const LEAGUE_POINTS = 150;
 const GENERIC_WHEELS = ['Maps', 'Magic Monsters', 'Rare Monsters', 'Unique Monsters', 'Divination Cards', 'Gold', 'Threads', 'Atlas Anomalies'];
@@ -361,12 +365,28 @@ function templ(line) {
   return { t, vals };
 }
 const fmt = v => Number.isInteger(v) ? String(v) : String(+v.toFixed(2));
+// GGG's stat text uses line breaks both to wrap one long sentence and to separate two stats.
+// A line that starts lowercase, or follows a line ending mid-phrase ("…chance to"), continues the sentence.
+const CONT_END = /\b(to|the|of|in|have|has|a|an|and|or|their|when|for|from|with|by|on|at|is|are|be|against|more|per|as|into|than|upon|within)$/i;
+function splitStat(s) {
+  const out = [];
+  for (const part of s.split('\n').map(x => x.trim()).filter(Boolean)) {
+    const prev = out[out.length - 1];
+    if (prev && (/^[a-z]/.test(part) || (CONT_END.test(prev) && !/^Your\b/.test(part)))) out[out.length - 1] = prev + ' ' + part;
+    else out.push(part);
+  }
+  return out;
+}
 function statLines(id) {
   const n = N[id]; if (['m', 's', 'w'].includes(n.t)) return [];
-  let st = n.st.flatMap(s => s.split('\n')).map(s => s.trim()).filter(Boolean);
+  let st = n.st.flatMap(splitStat);
   if (n.va) {
-    const v = (n.va[choice[id] ?? 0] || []).flatMap(s => s.split('\n')).map(s => s.trim()).filter(Boolean);
-    if (st.length && v.every(x => x.length < 40 && !/\d/.test(x))) st = [...st.slice(0, -1), st[st.length - 1] + ' ' + v.join(' / ')];
+    const v = (n.va[choice[id] ?? 0] || []).flatMap(splitStat);
+    if (st.length && v.every(x => x.length < 40 && !/\d/.test(x))) {
+      // a short choice ("The Deep") completes every line left hanging ("…from"), or else the last line
+      const label = v.join(' / ');
+      st = st.some(l => CONT_END.test(l)) ? st.map(l => CONT_END.test(l) ? l + ' ' + label : l) : [...st.slice(0, -1), st[st.length - 1] + ' ' + label];
+    }
     else st = st.concat(v);
   }
   return st;
@@ -519,8 +539,14 @@ let raf = 0;
 function draw() { if (!raf) raf = requestAnimationFrame(render); }
 function render() {
   raf = 0; if (!D) return;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = '#0b0a0c'; ctx.fillRect(0, 0, W, H);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = BG_FILL; ctx.fillRect(0, 0, W, H);
   ctx.setTransform(dpr * view.s, 0, 0, dpr * view.s, -view.x * view.s * dpr, -view.y * view.s * dpr);
+  const bg = imgs.bg, sn = N[[...START][0]];
+  if (bg && bg.complete && bg.naturalWidth && sn) {
+    ctx.filter = `brightness(${BG_BRIGHT})`;
+    ctx.drawImage(bg, sn.x - BG_SIZE / 2, sn.y - BG_SIZE / 2, BG_SIZE, BG_SIZE);
+    ctx.filter = 'none';
+  }
   const pad = 800, vx0 = view.x - pad, vy0 = view.y - pad, vx1 = view.x + W / view.s + pad, vy1 = view.y + H / view.s + pad;
   const vis = (x, y) => x > vx0 && x < vx1 && y > vy0 && y < vy1;
   const px = 1 / view.s;
