@@ -35,6 +35,7 @@
     <button id="more" type="button" aria-haspopup="true" aria-expanded="false" title="More">⋯</button>
   </div>
   <div class="menu" id="menu" hidden>
+    <button id="trees" type="button">Saved trees &amp; import…</button>
     <button id="fit" type="button">Fit to screen <kbd>F</kbd></button>
     <button id="theme" type="button">Theme: System</button>
     <button id="help" type="button">Shortcuts &amp; help <kbd>?</kbd></button>
@@ -51,6 +52,7 @@
     <div id="toast" role="status" hidden></div>
     <div class="budget" id="budget"></div>
     <div class="busy" id="busy" hidden>optimizing…</div>
+    <div class="cmpbar" id="cmpbar" role="status" hidden></div>
   </main>
 
   <aside id="side" aria-label="Plan and modifiers">
@@ -62,9 +64,12 @@
       <div class="bar"><i id="barfill"></i></div>
       <div class="scrub">
         <label for="at">View at point</label>
+        <button id="stprev" type="button" class="stepbtn" title="Previous step (←)" aria-label="Previous step">‹</button>
         <input id="at" type="range" min="0" max="0" value="0">
+        <button id="stnext" type="button" class="stepbtn" title="Next step (→)" aria-label="Next step">›</button>
         <output id="atv">all</output>
       </div>
+      <div class="stepinfo" id="stepinfo" hidden></div>
       <div class="tabs" role="tablist">
         <button role="tab" id="tab-plan" aria-selected="true" aria-controls="pane-plan">Plan</button>
         <button role="tab" id="tab-mods" aria-selected="false" aria-controls="pane-mods">Modifiers</button>
@@ -88,13 +93,33 @@
   <p><b>Click a target</b> to drop it. <b>Click a node on the path</b> to pin it. <b>Right-click</b> (or Block mode) blocks a node so paths avoid it.</p>
   <p>Prefer the in-game feel? Switch <b>Pathing</b> to <b>Manual</b>: each click takes the shortest path from what you have, and clicking an allocated node refunds it and anything cut off.</p>
   <p>Notables with a choice of effects open a picker when you click them; the summary shows only the effect you chose. Click the notable again to change it.</p>
-  <p>The <b>Plan</b> tab lists targets in the order you will level them. Drag or use the arrows to reorder; point numbers update. Drag the <b>View at point</b> slider to see the tree at any point count.</p>
+  <p>The <b>Plan</b> tab lists targets in the order you will level them. Drag or use the arrows to reorder; point numbers update. Use <b>‹ ›</b> next to <b>View at point</b> (or the arrow keys) to step through the tree one target at a time, or drag the slider to any point count.</p>
+  <p><b>⋯ → Saved trees</b> keeps named trees in this browser, loads shared links, and compares any of them with the tree you have open.</p>
   <table>
     <tr><td><kbd>/</kbd></td><td>Search</td><td><kbd>F</kbd></td><td>Fit to screen</td></tr>
     <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Undo</td><td><kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Redo</td></tr>
     <tr><td><kbd>B</kbd></td><td>Block mode</td><td><kbd>O</kbd></td><td>Point numbers on tree</td></tr>
     <tr><td><kbd>P</kbd></td><td>Smart / manual pathing</td><td><kbd>Esc</kbd></td><td>Clear search / close</td></tr>
+    <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Step through the order</td><td><kbd>Home</kbd></td><td>Show the whole tree</td></tr>
   </table>
+  <form method="dialog"><button>Close</button></form>
+</dialog>
+
+<dialog id="treesdlg" aria-labelledby="treesh">
+  <h2 id="treesh">Saved trees</h2>
+  <form id="saveform" class="trow">
+    <input id="savename" type="text" placeholder="Name this tree" maxlength="60" aria-label="Tree name" autocomplete="off">
+    <button type="submit">Save current</button>
+  </form>
+  <ul class="saved" id="savedlist"></ul>
+  <h2>Load or compare a link</h2>
+  <p class="hint">Paste a link from this planner, for example one someone shared with you.</p>
+  <textarea id="importtxt" rows="3" aria-label="Tree link" spellcheck="false"></textarea>
+  <div class="trow">
+    <span id="importmsg" class="msg" role="status"></span>
+    <button id="importload" type="button">Load</button>
+    <button id="importcmp" type="button">Compare</button>
+  </div>
   <form method="dialog"><button>Close</button></form>
 </dialog>
 
