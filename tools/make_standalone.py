@@ -15,7 +15,7 @@ def main():
     out = next((a for a in args if not a.startswith('--')), os.path.join(ROOT, 'dist', 'atlas-tree.html'))
     frag = '--fragment' in args
     html = rd('index.html')
-    data = {m: json.loads(rd(f'data/{m}.json')) for m in ('league', 'ruthless') if os.path.exists(os.path.join(ROOT, 'data', m + '.json'))}
+    data = {'league': json.loads(rd('data/league.json'))}
     imgs = {k: 'data:image/webp;base64,' + base64.b64encode(open(os.path.join(ROOT, 'assets', v + '.webp'), 'rb').read()).decode() for k, v in IMG.items()}
     html = re.sub(r'\s*<a id="offline"[^>]*>.*?</a>', '', html)  # the bundle is already the offline copy
     html = html.replace('<link rel="stylesheet" href="style.css">', '<style>\n' + rd('style.css') + '\n</style>')

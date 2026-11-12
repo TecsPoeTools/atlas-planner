@@ -14,17 +14,19 @@
 <body>
 <header>
   <h1>Atlas Tree <small id="ver">3.30</small></h1>
-  <div class="seg" role="group" aria-label="Game mode">
-    <button id="m-league" type="button" aria-pressed="true">League</button>
-    <button id="m-ruthless" type="button" aria-pressed="false">Ruthless</button>
+  <div class="seg" role="group" aria-label="Pathing" title="Smart: the cheapest tree is rebuilt for your targets. Manual: shortest path per click, like in game. (P)">
+    <span class="seglbl">Pathing</span>
+    <button id="p-smart" type="button" aria-pressed="true">Smart</button>
+    <button id="p-manual" type="button" aria-pressed="false">Manual</button>
   </div>
   <div class="search">
     <input id="q" type="search" placeholder="Search nodes  ( / )" autocomplete="off" aria-label="Search nodes">
     <span class="hits" id="hits"></span>
   </div>
-  <label class="focus"><span>Focus</span>
-    <select id="focus" aria-label="Focus on a mechanic"><option value="">Everything</option></select>
-  </label>
+  <div class="focuswrap">
+    <button id="focusbtn" type="button" aria-haspopup="true" aria-expanded="false" aria-pressed="false" title="Highlight mechanics on the tree">Focus</button>
+    <div class="fpop" id="fpop" hidden></div>
+  </div>
   <div class="btns">
     <button id="undo" type="button" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
     <button id="redo" type="button" title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
@@ -45,6 +47,7 @@
   <main>
     <canvas id="c" aria-label="Atlas passive tree"></canvas>
     <div id="tip" hidden></div>
+    <div id="picker" role="dialog" aria-label="Choose an effect" hidden></div>
     <div id="toast" role="status" hidden></div>
     <div class="budget" id="budget"></div>
     <div class="busy" id="busy" hidden>optimizing…</div>
@@ -83,12 +86,14 @@
   <h2>How it works</h2>
   <p><b>Click</b> a node to make it a target. The cheapest tree that reaches every target is rebuilt each time. When two routes cost the same, it takes the one with more of your preferred small passives (Plan tab → Path preferences).</p>
   <p><b>Click a target</b> to drop it. <b>Click a node on the path</b> to pin it. <b>Right-click</b> (or Block mode) blocks a node so paths avoid it.</p>
+  <p>Prefer the in-game feel? Switch <b>Pathing</b> to <b>Manual</b>: each click takes the shortest path from what you have, and clicking an allocated node refunds it and anything cut off.</p>
+  <p>Notables with a choice of effects open a picker when you click them; the summary shows only the effect you chose. Click the notable again to change it.</p>
   <p>The <b>Plan</b> tab lists targets in the order you will level them. Drag or use the arrows to reorder; point numbers update. Drag the <b>View at point</b> slider to see the tree at any point count.</p>
   <table>
     <tr><td><kbd>/</kbd></td><td>Search</td><td><kbd>F</kbd></td><td>Fit to screen</td></tr>
     <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Undo</td><td><kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Redo</td></tr>
     <tr><td><kbd>B</kbd></td><td>Block mode</td><td><kbd>O</kbd></td><td>Point numbers on tree</td></tr>
-    <tr><td><kbd>M</kbd></td><td>League / Ruthless</td><td><kbd>Esc</kbd></td><td>Clear search / close</td></tr>
+    <tr><td><kbd>P</kbd></td><td>Smart / manual pathing</td><td><kbd>Esc</kbd></td><td>Clear search / close</td></tr>
   </table>
   <form method="dialog"><button>Close</button></form>
 </dialog>

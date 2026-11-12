@@ -1,97 +1,102 @@
 # Atlas Tree Planner
 
-A Path of Exile atlas passive tree planner. Pick the notables you want and the
-cheapest tree that reaches all of them is rebuilt every time you add or drop one.
+I got tired of clicking around the atlas tree trying to figure out the cheapest
+way to reach the notables I actually want, so I made this. You click the nodes
+you care about, and it works out the shortest tree that gets all of them.
 
-**Live site:** `https://YOUR-USERNAME.github.io/atlas-planner/`
+**Try it:** `https://YOUR-USERNAME.github.io/atlas-planner/`
 
-## Features
+Built for the 3.30 atlas (150 points this league).
 
-- **Automatic pathing.** Click nodes to target them; the planner finds the
-  fewest-points tree that connects them all. When two routes cost the same, it
-  takes the one through more of your preferred small passives (Map Drop Chance,
-  Pack Size, and so on; set them under *Plan → Path preferences*).
-- **Allocation order.** Targets are listed in the order you'd level them, with
-  the exact point numbers each one takes. Drag to reorder. The *View at point*
-  slider shows the tree and its modifiers at any point count, and `O` shows
-  point numbers on the tree.
-- **Mechanic highlight.** Hovering any wheel lights up every wheel of that
-  mechanic. The *Focus* menu dims everything except one mechanic, or all the
-  wheels that work in every map.
-- **Modifier summary.** Identical modifiers are added together
-  (two "+25% chance" nodes read as "+50%"), grouped by mechanic. Notables with
-  a choice get radio buttons.
-- **League and Ruthless** trees, **block** nodes (right-click) so paths avoid
-  them, **undo/redo**, short **share links**, light and dark themes, and an
-  offline single-file copy.
+## What it does
 
-## Keyboard
+**Finds the cheapest path for you.** Click any notable, keystone or small node
+and it becomes a target. Every time you add or drop one, the whole tree is
+rebuilt from scratch with as few points as possible. When two routes cost the
+same, it goes through the small nodes you find useful (map drop chance, pack
+size and so on; you pick them under *Plan → Path preferences*).
 
-| Key | Action | Key | Action |
+**Or path it yourself.** Switch *Pathing* to *Manual* and it works like in game:
+each click takes the shortest path from what you already have, and clicking an
+allocated node refunds it along with anything that gets cut off.
+
+**Shows you the order to take things in.** The Plan tab lists your targets in
+the order you'd level them, with the exact point numbers (points 1–11, 12–19…).
+Drag them around to change the order. The *View at point* slider shows what your
+tree looks like at 20, 40, 60 points, and `O` puts the numbers on the tree.
+
+**Choose-one notables work like in game.** Click one and pick the effect right
+there. The summary only shows the one you chose.
+
+**Adds your modifiers up.** The Modifiers tab merges identical stats, so five
+"+25% chance to contain a Strongbox" nodes show up as one +125% line.
+
+**Highlights mechanics.** Hover any wheel and every other wheel of the same
+mechanic lights up. *Focus* lets you switch on as many mechanics as you like
+(Shrines first, then roughly by how popular they are), or just the stuff that
+works in every map.
+
+Also: right-click to block a node so paths avoid it, undo/redo, short share
+links, light/dark theme, and a single-file offline copy.
+
+## Shortcuts
+
+| Key | | Key | |
 |---|---|---|---|
-| `/` | Search | `F` | Fit to screen |
-| `Ctrl+Z` | Undo | `Ctrl+Y` | Redo |
-| `B` | Block mode | `O` | Point numbers |
-| `M` | League / Ruthless | `?` | Help |
+| `/` | search | `F` | fit to screen |
+| `Ctrl+Z` / `Ctrl+Y` | undo / redo | `B` | block mode |
+| `P` | smart / manual pathing | `O` | point numbers |
+| `Esc` | close / clear | `?` | help |
 
-## Running locally
+## Running it yourself
 
-It is a static site. From the repository folder:
+It's just static files. In the folder, run:
 
 ```
 python -m http.server 8000
 ```
 
-then open http://localhost:8000. (Opening `index.html` directly from disk will
-not load the data; use the server, or the single-file build below.)
+and open http://localhost:8000. (Double-clicking `index.html` won't work because
+the browser blocks it from loading the data. `atlas-tree.html` does work
+offline: it's everything bundled into one file.)
 
-## Publishing (GitHub Pages)
+## When a new league comes out
 
-The site is plain static files, so GitHub Pages can serve the repository as-is:
-**Settings → Pages → Build and deployment → Source: Deploy from a branch →
-Branch: `main`, folder `/ (root)` → Save.** Every push to `main` redeploys.
-
-## Updating the tree data
-
-When GGG publishes a new export, download it from
-[atlastree-export](https://github.com/grindinggear/atlastree-export) and run:
+GGG publishes the atlas data on GitHub at
+[grindinggear/atlastree-export](https://github.com/grindinggear/atlastree-export).
+Download the new version, then:
 
 ```
 python tools/build_data.py path/to/atlastree-export --version 3.31.0
 python tools/make_standalone.py atlas-tree.html
 ```
 
-then commit and push.
+If the point total changed, update `LEAGUE_POINTS` at the top of `app.js`.
+Commit, push, done.
 
-### Optional: automatic weekly updates
+If you'd rather not do that by hand, `tools/deploy-workflow.yml` is a GitHub
+Action that checks for new data every Monday and redeploys. To use it, create
+`.github/workflows/deploy.yml` on github.com (*Add file → Create new file*),
+paste the workflow in, and switch *Settings → Pages → Source* to
+*GitHub Actions*.
 
-`tools/deploy-workflow.yml` is a GitHub Action that checks GGG's export every
-Monday, rebuilds `data/` and `assets/` when anything changed, and redeploys.
-To turn it on:
+## Hosting
 
-1. On github.com, open the repository and choose **Add file → Create new file**.
-2. Name it `.github/workflows/deploy.yml` and paste in the contents of
-   `tools/deploy-workflow.yml`. Commit.
-3. In **Settings → Pages**, switch **Source** to **GitHub Actions**.
+GitHub Pages serves it straight from the repo: *Settings → Pages → Deploy from
+a branch → `main` / root*. Every push updates the site.
 
-GitHub pauses scheduled workflows on repositories with no activity for 60 days;
-run it by hand from the **Actions** tab when that happens.
-
-## Project layout
+## Files
 
 ```
 index.html, style.css, app.js   the page
-optimizer.js                    path optimizer (runs in a Web Worker)
-data/league.json, ruthless.json generated tree data
-assets/*.webp                   sprite sheets from the GGG export
-tools/build_data.py             export -> data/ + assets/
-tools/make_standalone.py        bundle into one HTML file
-tools/deploy-workflow.yml       optional auto-update GitHub Action
-atlas-tree.html                 single-file offline copy (generated)
+optimizer.js                    the pathing (runs in a background worker)
+data/league.json                tree data, generated from GGG's export
+assets/                         node icons and frames from GGG's export
+tools/build_data.py             turns GGG's export into data/ and assets/
+tools/make_standalone.py        bundles everything into atlas-tree.html
 ```
 
-## Disclaimer
+## Credits
 
-Fan-made tool, not affiliated with or endorsed by Grinding Gear Games. Path of
-Exile, the atlas tree data and its artwork belong to Grinding Gear Games. The
-code is MIT licensed (see `LICENSE`).
+Not affiliated with Grinding Gear Games. Path of Exile, the atlas data and all
+the art belong to them. The code here is MIT licensed; do what you like with it.

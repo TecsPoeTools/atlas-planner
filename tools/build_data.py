@@ -3,8 +3,8 @@
 
 Usage: python tools/build_data.py <export_dir> [--version 3.30.0]
 
-Reads <export_dir>/data.json (league) and <export_dir>/ruthless.json, writes
-data/league.json, data/ruthless.json and copies the sprite sheets into assets/.
+Reads <export_dir>/data.json, writes data/league.json and copies the sprite
+sheets into assets/.
 Export source: https://github.com/grindinggear/atlastree-export
 """
 import json, math, os, re, shutil, sys
@@ -124,7 +124,7 @@ def main():
     src = args[0]
     version = args[args.index('--version') + 1] if '--version' in args else re.sub(r'.*?(\d+\.\d+\.\d+).*', r'\1', os.path.basename(os.path.normpath(src)))
     os.makedirs(os.path.join(ROOT, 'data'), exist_ok=True); os.makedirs(os.path.join(ROOT, 'assets'), exist_ok=True)
-    for mode, fn in [('league', 'data.json'), ('ruthless', 'ruthless.json')]:
+    for mode, fn in [('league', 'data.json')]:
         p = os.path.join(src, fn)
         if not os.path.exists(p): print('skip', mode, '(missing', fn + ')'); continue
         data = build(p); data['version'] = version; data['mode'] = mode

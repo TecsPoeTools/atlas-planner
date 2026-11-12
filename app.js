@@ -1,4 +1,4 @@
-/* Atlas Tree planner — main page logic. Data comes from data/<mode>.json (built by
+/* Atlas Tree planner — main page logic. Data comes from data/league.json (built by
    tools/build_data.py), or from window.ATLAS_DATA in the single-file build. */
 (() => {
 'use strict';
@@ -6,7 +6,14 @@
 // ---------- constants ----------
 const SC = 2; // sprites are from the 0.5 zoom sheet: world size = px / 0.5
 const IMG_FILES = { on: 'atlas-skills', off: 'atlas-skills-disabled', mas: 'atlas-mastery', fr: 'atlas-frame', gb: 'atlas-group-background' };
-const GENERIC_WHEELS = ['Maps', 'Magic Monsters', 'Rare Monsters', 'Unique Monsters', 'Shrines', 'Divination Cards', 'Gold', 'Threads', 'Atlas Anomalies'];
+// Points available this league. GGG's export still says 138; set to 0 to use the export's value.
+const LEAGUE_POINTS = 150;
+const GENERIC_WHEELS = ['Maps', 'Magic Monsters', 'Rare Monsters', 'Unique Monsters', 'Divination Cards', 'Gold', 'Threads', 'Atlas Anomalies'];
+// Focus list order: Shrines pinned first, then mechanics roughly by how many players farm them.
+const MECH_RANK = ['Shrines', 'Essence', 'Strongboxes', 'Breach', 'Ritual', 'The Searing Exarch', 'The Eater of Worlds', 'Expedition',
+  'Abyss', 'Delirium', 'Legion', 'Blight', 'Ultimatum', 'Betrayal', 'Settlers of Kalguur', 'Rogue Exiles', 'Mercenaries', 'Incursion',
+  'Bestiary', 'Torment', 'Sacred Flora', 'Viridian Wildwood', 'Beyond', 'Atlas Memories', 'Sentinels', 'Mirage', 'Labyrinth',
+  'Synthesis', 'The Shaper and Elder', 'Conquerors'];
 const GENERIC_SMALLS = ['Map Drop Chance', 'Thread Drop Chance', 'Map Pack Size', 'Item Rarity', 'Map Magic Monsters', 'Map Rare Monsters', 'Map Modifier Effect', 'Magic Monsters', 'Higher Map Tier Chance'];
 const DEFAULT_PREFS = ['Map Drop Chance', 'Higher Map Tier Chance', 'Map Pack Size', 'Map Modifier Effect', 'Map Rare Monsters', 'Map Magic Monsters', 'Item Rarity'];
 const B62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -20,15 +27,13 @@ const store = {
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // ---------- data / mode ----------
-let mode = 'league', D = null, N = {}, ADJ = {}, ids = [], START = new Set(), WH = [], SPR = {}, MAXP = 138;
+let D = null, N = {}, ADJ = {}, ids = [], START = new Set(), WH = [], SPR = {}, MAXP = 138;
 const imgs = {};
 const cache = {};
-async function loadData(m) {
-  if (cache[m]) return cache[m];
-  let d;
-  if (window.ATLAS_DATA) d = window.ATLAS_DATA[m];
-  else d = await (await fetch(`data/${m}.json`)).json();
-  cache[m] = d; return d;
+async function loadData() {
+  if (cache.d) return cache.d;
+  cache.d = window.ATLAS_DATA ? window.ATLAS_DATA.league : await (await fetch('data/league.json')).json();
+  return cache.d;
 }
 function loadImages() {
   for (const k in IMG_FILES) {
@@ -42,15 +47,16 @@ function loadImages() {
 let targets = [], blocked = new Set(), choice = {}, prefs = new Set(DEFAULT_PREFS);
 let alloc = new Set(), unreachable = new Set(), order = [], stepOf = new Map(), groups = [];
 let viewAt = Infinity; // show the tree as it is at this many points
-let blockMode = false, showNums = false, focus = '';
+let blockMode = false, showNums = false, focusSel = new Set();
+let smart = true; // smart pathing on: targets are re-optimized; off: targets is the literal allocation order
 const tset = () => new Set(targets);
 const used = (set = alloc) => { let c = 0; for (const id of set) if (!START.has(id)) c++; return c; };
 const effAlloc = () => viewAt === Infinity ? alloc : new Set([...alloc].filter(id => START.has(id) || (stepOf.get(id) || Infinity) <= viewAt));
 
 // undo / redo
 let undoStack = [], redoStack = [];
-const snap = () => JSON.stringify({ t: targets, b: [...blocked], c: choice });
-function restore(s) { const o = JSON.parse(s); targets = o.t; blocked = new Set(o.b); choice = o.c; }
+const snap = () => JSON.stringify({ t: targets, b: [...blocked], c: choice, s: smart });
+function restore(s) { const o = JSON.parse(s); targets = o.t; blocked = new Set(o.b); choice = o.c; if (o.s !== undefined && o.s !== smart) setSmartUI(o.s); }
 function commit(fn) { undoStack.push(snap()); if (undoStack.length > 200) undoStack.shift(); redoStack = []; fn(); rebuild(); }
 function undo() { if (!undoStack.length) return; redoStack.push(snap()); restore(undoStack.pop()); rebuild(); say('Undone'); }
 function redo() { if (!redoStack.length) return; undoStack.push(snap()); restore(redoStack.pop()); rebuild(); say('Redone'); }
@@ -86,12 +92,20 @@ function runOpt(terms, ban, budget) {
 async function rebuild() {
   const my = ++latestTree;
   previewCache.clear(); preview = null;
-  $('busy').hidden = false;
-  const r = await runOpt(targets, [...blocked], 180);
-  if (my !== latestTree) return;
-  $('busy').hidden = true;
-  alloc = new Set(r.tree); unreachable = new Set(r.miss);
-  computeOrder();
+  if (smart) {
+    $('busy').hidden = false;
+    const r = await runOpt(targets, [...blocked], 180);
+    if (my !== latestTree) return;
+    $('busy').hidden = true;
+    alloc = new Set(r.tree); unreachable = new Set(r.miss);
+    computeOrder();
+  } else {
+    // manual: keep the clicked order, drop anything no longer connected to the start
+    const keep = connectedFrom(new Set(targets.filter(t => !blocked.has(t))));
+    targets = targets.filter(t => keep.has(t));
+    alloc = new Set([...START, ...targets]); unreachable = new Set();
+    computeManualOrder();
+  }
   const max = used();
   if (viewAt !== Infinity && viewAt > max) viewAt = Infinity;
   save(); syncScrub(); renderSide(); renderBudget(); updateUndo(); draw();
@@ -111,9 +125,42 @@ function computeOrder() {
   for (const id of alloc) if (!have.has(id)) order.push(id); // safety
   order.forEach((id, i) => stepOf.set(id, i + 1));
 }
+function connectedFrom(set) {
+  const seen = new Set(START), q = [...START];
+  while (q.length) { const c = q.shift(); for (const b of ADJ[c] || []) if (set.has(b) && !seen.has(b)) { seen.add(b); q.push(b); } }
+  return seen;
+}
+function computeManualOrder() {
+  order = targets.slice(); stepOf = new Map(); groups = [];
+  order.forEach((id, i) => stepOf.set(id, i + 1));
+  let from = 0;
+  order.forEach((id, i) => { const t = N[id].t; if (t === 'n' || t === 'k') { groups.push({ t: id, from, n: i + 1 - from }); from = i + 1; } });
+  if (from < order.length) groups.push({ t: null, from, n: order.length - from });
+}
+// shortest path from the current allocation (manual mode)
+function manualPath(target) {
+  const prev = new Map(), q = [];
+  for (const id of alloc) { prev.set(id, null); q.push(id); }
+  for (let i = 0; i < q.length; i++) {
+    const c = q[i]; if (c === target) break;
+    for (const b of ADJ[c] || []) if (!prev.has(b) && !blocked.has(b) && N[b].t !== 'm') { prev.set(b, c); q.push(b); }
+  }
+  if (!prev.has(target)) return null;
+  const p = []; for (let c = target; c != null && !alloc.has(c); c = prev.get(c)) p.push(c);
+  return p.reverse();
+}
+function refundSet(id) {
+  const rest = new Set(targets.filter(t => t !== id)), keep = connectedFrom(rest);
+  return targets.filter(t => !keep.has(t));
+}
 const previewCache = new Map(); let preview = null;
 function requestPreview(id) {
   if (previewCache.has(id)) { preview = previewCache.get(id); return; }
+  if (!smart) {
+    const p = manualPath(id);
+    preview = p ? { add: p, drop: [], size: alloc.size + p.length, ok: true } : { add: [], drop: [], size: alloc.size, ok: false };
+    previewCache.set(id, preview); return;
+  }
   preview = { pending: true, add: [], drop: [] };
   const gen = latestTree;
   runOpt([...targets, id], [...blocked], 50).then(r => {
@@ -126,16 +173,54 @@ function requestPreview(id) {
 }
 
 // ---------- actions ----------
-function clickNode(id) {
+function clickNode(id, pt) {
   const n = N[id]; if (!n || START.has(id) || n.t === 'm') return;
+  // "choose one" notables: pick the effect on the spot, like in game
+  if (n.va && !blockMode && !(smart && alloc.has(id) && !targets.includes(id))) { openPicker(id, pt || lastPt); return; }
+  allocToggle(id);
+}
+function allocToggle(id, pickIdx) {
+  const n = N[id];
+  if (!smart && !blockMode) {
+    if (alloc.has(id)) { const gone = new Set(refundSet(id)); commit(() => { targets = targets.filter(t => !gone.has(t)); }); }
+    else { const p = manualPath(id); if (!p) { say('That node cannot be reached with the current blocks'); return; } commit(() => { targets.push(...p); blocked.delete(id); if (pickIdx != null) choice[id] = pickIdx; }); }
+    return;
+  }
   commit(() => {
     if (blockMode) {
       if (blocked.has(id)) blocked.delete(id); else { blocked.add(id); targets = targets.filter(t => t !== id); }
     } else if (targets.includes(id)) targets = targets.filter(t => t !== id);
-    else { targets.push(id); blocked.delete(id); }
+    else { targets.push(id); blocked.delete(id); if (pickIdx != null) choice[id] = pickIdx; }
   });
 }
-function toggleBlock(id) { const was = blockMode; blockMode = true; clickNode(id); blockMode = was; }
+// ---------- choice picker ----------
+const picker = $('picker');
+function openPicker(id, pt) {
+  const n = N[id], has = alloc.has(id), cur = choice[id] ?? 0;
+  picker.innerHTML = `<div class="pk-hd"><b>${esc(n.nm)}</b><span>${has ? 'Change effect' : 'Choose one'}</span></div>` +
+    (n.st.length ? `<div class="pk-base">${esc(n.st.join(' '))}</div>` : '') +
+    n.va.map((v, i) => `<button type="button" class="pk-opt${has && i === cur ? ' on' : ''}" data-i="${i}">${esc(v.join('\n'))}</button>`).join('') +
+    `<div class="pk-ft">${has ? '<button type="button" data-act="remove" class="pk-rm">Remove</button>' : ''}<button type="button" data-act="cancel">Cancel</button></div>`;
+  picker.dataset.id = id; picker.hidden = false; tip.hidden = true;
+  const mr = cv.getBoundingClientRect(), w = picker.offsetWidth, h = picker.offsetHeight;
+  let x = pt.x + 24, y = pt.y - h / 2;
+  if (x + w > mr.width - 8) x = pt.x - w - 24;
+  y = Math.min(Math.max(8, y), mr.height - h - 8);
+  picker.style.left = Math.max(8, x) + 'px'; picker.style.top = y + 'px';
+  picker.querySelector('.pk-opt').focus();
+}
+function closePicker() { picker.hidden = true; }
+picker.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const id = picker.dataset.id; closePicker();
+  if (b.dataset.act === 'cancel') return;
+  if (b.dataset.act === 'remove') { allocToggle(id); return; }
+  const i = +b.dataset.i;
+  if (alloc.has(id)) { if ((choice[id] ?? 0) !== i) commit(() => { choice[id] = i; }); }
+  else allocToggle(id, i);
+});
+picker.addEventListener('pointerdown', e => e.stopPropagation());
+function toggleBlock(id) { const was = blockMode; blockMode = true; allocToggle(id); blockMode = was; }
 function moveTarget(from, to) {
   if (to < 0 || to >= targets.length || from === to) return;
   commit(() => { const [x] = targets.splice(from, 1); targets.splice(to, 0, x); });
@@ -143,15 +228,15 @@ function moveTarget(from, to) {
 
 // ---------- persistence & links ----------
 function serialize() {
-  let s = (mode === 'ruthless' ? 'r' : 'l') + '1-' + targets.map(t => enc3(+t)).join('');
+  let s = (smart ? 'l' : 'm') + '1-' + targets.map(t => enc3(+t)).join('');
   if (blocked.size) s += '-b' + [...blocked].map(t => enc3(+t)).join('');
   const cs = Object.entries(choice).filter(([k, v]) => v && alloc.has(k));
   if (cs.length) s += '-c' + cs.map(([k, v]) => enc3(+k) + v).join('');
   return s;
 }
 function parse(raw) {
-  const st = { t: [], b: [], c: {} };
-  if (/^[lr]1-/.test(raw)) {
+  const st = { t: [], b: [], c: {}, s: !/^m1-/.test(raw) };
+  if (/^[lrm]1-/.test(raw)) {
     const parts = raw.slice(3).split('-');
     const chunk = (s, n) => s.match(new RegExp(`.{${n}}`, 'g')) || [];
     chunk(parts[0], 3).forEach(x => st.t.push(String(dec3(x))));
@@ -167,12 +252,13 @@ function parse(raw) {
     }
   }
   st.t = [...new Set(st.t)].filter(i => N[i] && N[i].t !== 'm' && !START.has(i));
+  if (!/^[lrm]1-/.test(raw)) st.s = true;
   st.b = st.b.filter(i => N[i]);
   for (const k in st.c) if (!N[k] || !N[k].va) delete st.c[k];
   return st;
 }
 function save() {
-  store.set('atlas-' + mode, serialize());
+  store.set('atlas-league', serialize());
   store.set('atlas-prefs', [...prefs].join('|'));
 }
 function linkUrl() {
@@ -233,8 +319,23 @@ function renderSide() {
 function renderPlan() {
   let h = '';
   if (unreachable.size) h += `<h3>Unreachable</h3><div class="warn">${[...unreachable].map(i => esc(N[i].nm)).join(', ')} cannot be reached with the current blocks.</div>`;
-  if (!targets.length) h += `<div class="empty">Click nodes on the atlas to add targets. They are listed here in the order you would level them, with the points each one costs.</div>`;
-  else {
+  if (!targets.length) h += smart ? `<div class="empty">Click nodes on the atlas to add targets. They are listed here in the order you would level them, with the points each one costs.</div>`
+    : `<div class="empty">Manual pathing: click a node to take the shortest path to it from what you have, like in game. Click an allocated node to refund it.</div>`;
+  else if (!smart) {
+    h += `<h3>Allocation order <span>as clicked</span></h3><ol class="plan" id="planlist">`;
+    let k = 0;
+    for (const g of groups) {
+      const a = g.from + 1, b = g.from + g.n, n = g.t ? N[g.t] : null;
+      const range = g.n === 1 ? `point ${a}` : `points ${a}–${b} · +${g.n}`;
+      const later = viewAt !== Infinity && a > viewAt, cur = viewAt !== Infinity && a <= viewAt && b >= viewAt;
+      h += `<li data-id="${g.t || ''}" class="manual${later ? ' later' : ''}${cur ? ' cur' : ''}">
+        <span class="n">${n ? ++k : '·'}</span>
+        <span class="nm"><b class="n-${n ? n.t : 'p'}">${n ? esc(n.nm) : 'Small passives'}</b><small>${range}</small></span>
+        <span class="ctl">${n ? `<button data-act="go" aria-label="Show ${esc(n.nm)} on the tree">◎</button><button data-act="refund" aria-label="Refund ${esc(n.nm)}">✕</button>` : ''}</span>
+      </li>`;
+    }
+    h += '</ol>';
+  } else {
     h += `<h3>Allocation order <span>drag to reorder</span></h3><ol class="plan" id="planlist">`;
     targets.forEach((t, i) => {
       const g = groups[i] || { from: 0, n: 0 }, n = N[t];
@@ -250,6 +351,7 @@ function renderPlan() {
     h += '</ol>';
   }
   // path preferences
+  if (!smart) { $('pane-plan').innerHTML = h; return; }
   const smalls = {};
   for (const id of ids) if (N[id].t === 'p') smalls[N[id].nm] = (smalls[N[id].nm] || 0) + 1;
   const names = Object.keys(smalls).sort((a, b) => (GENERIC_SMALLS.includes(b) - GENERIC_SMALLS.includes(a)) || smalls[b] - smalls[a]);
@@ -260,11 +362,10 @@ function renderPlan() {
 }
 function renderMods() {
   const ea = effAlloc();
-  const ks = [], ch = [], agg = new Map();
+  const ks = [], agg = new Map();
   for (const id of order.filter(x => ea.has(x))) {
     const n = N[id];
     if (n.t === 'k') { ks.push(id); continue; }
-    if (n.va) ch.push(id);
     for (const line of statLines(id)) {
       const { t, vals } = templ(line), a = agg.get(t);
       if (a) { a.n++; a.vals = a.vals.map((v, i) => v + (vals[i] || 0)); }
@@ -276,14 +377,6 @@ function renderMods() {
   if (ks.length) {
     h += `<h3>Keystones <span>${ks.length}</span></h3>`;
     for (const id of ks) h += `<div class="ks"><b>${esc(N[id].nm)}</b>${statLines(id).map(s => `<div>${esc(s)}</div>`).join('')}</div>`;
-  }
-  if (ch.length) {
-    h += `<h3>Choices <span>${ch.length}</span></h3>`;
-    for (const id of ch) {
-      const n = N[id], cur = choice[id] ?? 0;
-      h += `<div class="choice"><b>${esc(n.nm)}</b>${n.st.length ? `<div class="cbase">${esc(n.st.join(' '))}</div>` : ''}` + n.va.map((v, i) =>
-        `<label><input type="radio" name="c${id}" id="c${id}_${i}" data-id="${id}" data-i="${i}" ${i === cur ? 'checked' : ''}><span>${esc(v.join(' · '))}</span></label>`).join('') + '</div>';
-    }
   }
   const byCat = new Map();
   for (const [t, a] of agg) { if (!byCat.has(a.cat)) byCat.set(a.cat, []); byCat.get(a.cat).push([t, a]); }
@@ -324,7 +417,14 @@ $('pane-plan').addEventListener('change', e => {
 $('pane-plan').addEventListener('toggle', e => { if (e.target.id === 'prefsbox') store.set('atlas-prefs-open', e.target.open ? '1' : '0'); }, true);
 $('pane-plan').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  const i = +b.closest('li').dataset.i, t = targets[i];
+  const li = b.closest('li');
+  if (li.classList.contains('manual')) {
+    const id = li.dataset.id;
+    if (b.dataset.act === 'go') { centerOn(id); setHover(id, { x: W / 2, y: H / 2 }, true); }
+    if (b.dataset.act === 'refund') { const gone = new Set(refundSet(id)); commit(() => { targets = targets.filter(t => !gone.has(t)); }); }
+    return;
+  }
+  const i = +li.dataset.i, t = targets[i];
   if (b.dataset.act === 'up') moveTarget(i, i - 1);
   if (b.dataset.act === 'down') moveTarget(i, i + 1);
   if (b.dataset.act === 'del') commit(() => { targets.splice(i, 1); });
@@ -335,7 +435,7 @@ $('pane-plan').addEventListener('dragstart', e => { const li = e.target.closest(
 $('pane-plan').addEventListener('dragover', e => { const li = e.target.closest('li'); if (!li || dragFrom == null) return; e.preventDefault(); document.querySelectorAll('.plan li.over').forEach(x => x.classList.remove('over')); li.classList.add('over'); });
 $('pane-plan').addEventListener('drop', e => { const li = e.target.closest('li'); if (!li || dragFrom == null) return; e.preventDefault(); const to = +li.dataset.i, f = dragFrom; dragFrom = null; moveTarget(f, to); });
 $('pane-plan').addEventListener('dragend', () => { dragFrom = null; document.querySelectorAll('.plan li').forEach(x => x.classList.remove('over', 'dragging')); });
-$('pane-plan').addEventListener('mouseover', e => { const li = e.target.closest('li[data-i]'); hoverPlan = li ? targets[+li.dataset.i] : null; draw(); });
+$('pane-plan').addEventListener('mouseover', e => { const li = e.target.closest('li[data-i], li[data-id]'); hoverPlan = li ? (li.dataset.id || targets[+li.dataset.i]) : null; draw(); });
 $('pane-plan').addEventListener('mouseleave', () => { hoverPlan = null; draw(); });
 let hoverPlan = null;
 const side = $('side');
@@ -371,7 +471,17 @@ function render() {
   const px = 1 / view.s;
   const ea = effAlloc();
   const dim = id => focusSet && !focusSet.has(id) && !ea.has(id);
+  const T = smart ? tset() : new Set(groups.map(g => g.t).filter(Boolean));
 
+  if (focusSet) {
+    const on = new Set([...focusSel].filter(f => f !== '*generic')); if (focusSel.has('*generic')) GENERIC_WHEELS.forEach(w => on.add(w));
+    for (const [nm, x, y, r] of WH) if (on.has(nm) && nm !== hoverMech) {
+      const g = ctx.createRadialGradient(x, y, r * .2, x, y, r);
+      g.addColorStop(0, 'rgba(242,212,138,0.16)'); g.addColorStop(1, 'rgba(242,212,138,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(242,212,138,0.45)'; ctx.lineWidth = Math.max(8, 1.5 * px); ctx.stroke();
+    }
+  }
   if (hoverMech) for (const [nm, x, y, r] of WH) if (nm === hoverMech) {
     const g = ctx.createRadialGradient(x, y, r * .3, x, y, r);
     g.addColorStop(0, 'rgba(242,212,138,0.20)'); g.addColorStop(1, 'rgba(242,212,138,0.04)');
@@ -410,7 +520,6 @@ function render() {
 
   const canAlloc = new Set();
   for (const id of ea) for (const b of ADJ[id] || []) if (!ea.has(b)) canAlloc.add(b);
-  const T = tset();
   const nums = showNums && view.s > 0.09;
   for (const id of ids) {
     const n = N[id]; if (!vis(n.x, n.y)) continue;
@@ -457,7 +566,10 @@ function showTip(id, pt) {
   let h = `<div class="hd"><span class="nm">${esc(n.nm)}</span><span class="ty">${ty}</span></div><div class="bd">`;
   if (n.t !== 'm') {
     for (const s of n.st) h += `<div class="st">${esc(s)}</div>`;
-    if (n.va) n.va.forEach((v, i) => h += `<div class="va${(choice[id] ?? 0) === i && alloc.has(id) ? ' sel' : ''}">${esc(v.join('\n'))}</div>`);
+    if (n.va) {
+      if (alloc.has(id)) h += `<div class="va sel">${esc(n.va[choice[id] ?? 0].join('\n'))}</div>`;
+      else n.va.forEach(v => h += `<div class="va">${esc(v.join('\n'))}</div>`);
+    }
     if (n.rm && n.t === 'k') h += `<div class="rm">${n.rm.map(esc).join(' ')}</div>`;
   }
   h += '</div>';
@@ -466,6 +578,7 @@ function showTip(id, pt) {
     const step = stepOf.get(id);
     if (blockMode) f = blocked.has(id) ? 'Blocked · click to unblock' : 'Click to block';
     else if (blocked.has(id)) f = 'Blocked';
+    else if (!smart && alloc.has(id)) { const r = refundSet(id).length; f = `Point ${step} · click to refund ${r}`; }
     else if (targets.includes(id)) f = unreachable.has(id) ? '<s>Unreachable</s>' : `Target #${targets.indexOf(id) + 1} · point ${step}`;
     else if (alloc.has(id)) f = `On path · point ${step}`;
     else if (preview) f = preview.pending ? '…' : !preview.ok ? '<s>Unreachable</s>' : `<b>+${preview.size - alloc.size} pts</b>` + (preview.drop.length ? ` · reroutes <s>−${preview.drop.length}</s>` : '');
@@ -508,6 +621,7 @@ const clampS = s => Math.min(0.6, Math.max(0.02, s));
 cv.addEventListener('contextmenu', e => { e.preventDefault(); const id = pick(e.offsetX, e.offsetY); if (id && N[id].t !== 'm') toggleBlock(id); });
 cv.addEventListener('pointerdown', e => {
   if (e.button === 2) return;
+  if (!picker.hidden) closePicker();
   cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
   if (ptrs.size === 1) { drag = { x: e.offsetX, y: e.offsetY, vx: view.x, vy: view.y }; moved = 0; }
   if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), s: view.s, w: toWorld((a.x + b.x) / 2, (a.y + b.y) / 2) }; drag = null; }
@@ -532,8 +646,8 @@ function endPtr(e) {
   if (ptrs.size < 2) pinch = null;
   if (drag && moved <= 4 && ptrs.size === 0) {
     const id = pick(e.offsetX, e.offsetY);
-    if (e.pointerType === 'mouse') { if (id) clickNode(id); }
-    else if (id && id === touchSel) clickNode(id);
+    if (e.pointerType === 'mouse') { if (id) clickNode(id, { x: e.offsetX, y: e.offsetY }); }
+    else if (id && id === touchSel) clickNode(id, { x: e.offsetX, y: e.offsetY });
     else { touchSel = id; setHover(id, { x: e.offsetX, y: e.offsetY }); }
   }
   if (ptrs.size === 0) drag = null;
@@ -567,25 +681,38 @@ q.addEventListener('keydown', e => {
   hitsEl.textContent = `${hitIdx + 1} of ${hitList.length}`; setHover(hitList[hitIdx], { x: W / 2, y: H / 2 }, true);
 });
 function buildFocus() {
-  const sel = $('focus'), cur = sel.value;
-  const names = [...new Set(WH.map(w => w[0]))].sort();
-  sel.innerHTML = `<option value="">Everything</option><option value="*generic">All-map (generic)</option><optgroup label="Mechanic">` +
-    names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('') + '</optgroup>';
-  sel.value = cur && [...sel.options].some(o => o.value === cur) ? cur : '';
+  const present = new Set(WH.map(w => w[0]));
+  const ranked = MECH_RANK.filter(n => present.has(n));
+  const rest = [...present].filter(n => !GENERIC_WHEELS.includes(n) && !ranked.includes(n)).sort();
+  const chip = (v, label, cls = '') => `<label class="${cls}"><input type="checkbox" data-f="${esc(v)}" ${focusSel.has(v) ? 'checked' : ''}>${esc(label)}</label>`;
+  $('fpop').innerHTML = `<div class="fhd"><span>Highlight on the tree</span><button type="button" id="fclear">Clear</button></div>
+    <div class="chips">${chip('*generic', 'All-map (generic)', 'gen')}</div>
+    <div class="fsub">Mechanics, most farmed first</div>
+    <div class="chips">${[...ranked, ...rest].map(n => chip(n, n)).join('')}</div>`;
   applyFocus();
 }
 function applyFocus() {
-  focus = $('focus').value;
-  if (!focus) { focusSet = null; draw(); return; }
-  const wheelOk = focus === '*generic' ? new Set(GENERIC_WHEELS) : new Set([focus]);
+  const n = focusSel.size;
+  $('focusbtn').innerHTML = n ? `Focus <b>${n}</b>` : 'Focus';
+  $('focusbtn').setAttribute('aria-pressed', n > 0);
+  store.set('atlas-focus', [...focusSel].join('|'));
+  if (!n) { focusSet = null; draw(); return; }
+  const wheelOk = new Set([...focusSel].filter(f => f !== '*generic'));
+  const gen = focusSel.has('*generic');
+  if (gen) GENERIC_WHEELS.forEach(w => wheelOk.add(w));
   focusSet = new Set(ids.filter(id => {
-    const n = N[id];
-    if (n.wh != null) return wheelOk.has(WH[n.wh][0]);
-    return focus === '*generic' && GENERIC_SMALLS.includes(n.nm);
+    const nd = N[id];
+    if (nd.wh != null) return wheelOk.has(WH[nd.wh][0]);
+    return gen && GENERIC_SMALLS.includes(nd.nm);
   }));
   draw();
 }
-$('focus').addEventListener('change', applyFocus);
+const fpop = $('fpop'), fbtn = $('focusbtn');
+fbtn.onclick = e => { e.stopPropagation(); fpop.hidden = !fpop.hidden; fbtn.setAttribute('aria-expanded', !fpop.hidden); };
+fpop.addEventListener('click', e => { e.stopPropagation(); if (e.target.id === 'fclear') { focusSel.clear(); fpop.querySelectorAll('input').forEach(i => i.checked = false); applyFocus(); } });
+fpop.addEventListener('change', e => { const f = e.target.dataset.f; if (!f) return; if (e.target.checked) focusSel.add(f); else focusSel.delete(f); applyFocus(); });
+document.addEventListener('click', e => { if (!fpop.hidden && !fpop.contains(e.target)) { fpop.hidden = true; fbtn.setAttribute('aria-expanded', false); } });
+
 
 // ---------- header buttons ----------
 const toast = $('toast'); let tt;
@@ -620,31 +747,45 @@ function applyTheme(t) {
   $('theme').textContent = 'Theme: ' + t[0].toUpperCase() + t.slice(1); store.set('atlas-theme', t);
 }
 $('theme').onclick = e => { e.stopPropagation(); const cur = store.get('atlas-theme') || 'system'; applyTheme(THEMES[(THEMES.indexOf(cur) + 1) % 3]); };
-// modes
-async function setMode(m, fromHash) {
-  if (D && m === mode && !fromHash) return;
-  if (D) save();
-  mode = m;
-  $('m-league').setAttribute('aria-pressed', m === 'league'); $('m-ruthless').setAttribute('aria-pressed', m === 'ruthless');
-  D = await loadData(m);
-  N = D.nodes; ADJ = D.adj; ids = Object.keys(N); START = new Set(D.start); WH = D.wheels; SPR = D.spr; MAXP = D.pts;
-  $('ver').textContent = (D.version || '') + (m === 'ruthless' ? ' · Ruthless' : '');
-  document.title = `Atlas Tree ${D.version || ''}${m === 'ruthless' ? ' Ruthless' : ''}`;
+// pathing toggle
+function setSmartUI(v) {
+  smart = v;
+  $('p-smart').setAttribute('aria-pressed', v); $('p-manual').setAttribute('aria-pressed', !v);
+  document.body.classList.toggle('manual', !v);
+}
+function setSmart(v) {
+  if (v === smart) return;
+  commit(() => {
+    if (v) { // manual -> smart: keep the notables and keystones as targets, re-optimize the rest
+      targets = order.filter(id => N[id].t === 'n' || N[id].t === 'k');
+      say('Smart pathing on: tree rebuilt around your notables');
+    } else { // smart -> manual: freeze the current tree in level order
+      targets = order.slice();
+      say('Manual pathing: clicks take the shortest path, like in game');
+    }
+    setSmartUI(v);
+  });
+}
+$('p-smart').onclick = () => setSmart(true);
+$('p-manual').onclick = () => setSmart(false);
+async function loadTree(fromHash) {
+  D = await loadData();
+  N = D.nodes; ADJ = D.adj; ids = Object.keys(N); START = new Set(D.start); WH = D.wheels; SPR = D.spr; MAXP = LEAGUE_POINTS || D.pts;
+  $('ver').textContent = D.version || '';
+  document.title = `Atlas Tree ${D.version || ''}`;
   alloc = new Set(START); hover = null; preview = null; undoStack = []; redoStack = []; viewAt = Infinity;
-  const saved = store.get('atlas-' + m) || '';
-  const st = parse(fromHash || saved); targets = st.t; blocked = new Set(st.b); choice = st.c;
+  const saved = store.get('atlas-league') || '';
+  const st = parse(fromHash || saved); targets = st.t; blocked = new Set(st.b); choice = st.c; setSmartUI(st.s);
   if (fromHash && saved && saved !== fromHash) {
     // opening a shared link: keep the viewer's own tree one undo away
     const mine = parse(saved);
-    undoStack = [JSON.stringify({ t: mine.t, b: mine.b, c: mine.c })];
+    undoStack = [JSON.stringify({ t: mine.t, b: mine.b, c: mine.c, s: mine.s })];
     setTimeout(() => say('Loaded shared tree · Ctrl+Z brings back yours'), 400);
   }
   setupOptimizer(); buildFocus(); runSearch();
   if (W) fit();
   await rebuild();
 }
-$('m-league').onclick = () => setMode('league');
-$('m-ruthless').onclick = () => setMode('ruthless');
 
 // ---------- keyboard ----------
 document.addEventListener('keydown', e => {
@@ -658,9 +799,9 @@ document.addEventListener('keydown', e => {
   else if (k === 'f' || k === 'F') fit();
   else if (k === 'b' || k === 'B') setBlock(!blockMode);
   else if (k === 'o' || k === 'O') { showNums = !showNums; say(showNums ? 'Point numbers on (zoom in to see them)' : 'Point numbers off'); draw(); }
-  else if (k === 'm' || k === 'M') setMode(mode === 'league' ? 'ruthless' : 'league');
+  else if (k === 'p' || k === 'P') setSmart(!smart);
   else if (k === '?') $('helpdlg').showModal();
-  else if (k === 'Escape') { if (q.value) { q.value = ''; runSearch(); } if (blockMode) setBlock(false); menu.hidden = true; }
+  else if (k === 'Escape') { closePicker(); if (q.value) { q.value = ''; runSearch(); } if (blockMode) setBlock(false); menu.hidden = true; fpop.hidden = true; }
 });
 
 // ---------- boot ----------
@@ -672,11 +813,11 @@ async function boot() {
   if (window.ATLAS_DATA && $('offline')) $('offline').hidden = true;
   loadImages(); initWorker();
   new ResizeObserver(() => { const first = !W; resize(); if (first && D) fit(); }).observe(cv);
+  const f = store.get('atlas-focus'); if (f) focusSel = new Set(f.split('|').filter(Boolean));
   const h = decodeURIComponent(location.hash.slice(1));
-  const m = /^r1-/.test(h) ? 'ruthless' : 'league';
-  await setMode(m, h || null);
+  await loadTree(h || null);
   if (h) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }
 }
-window.addEventListener('hashchange', () => { const h = location.hash.slice(1); if (h) setMode(/^r1-/.test(h) ? 'ruthless' : 'league', h); });
+window.addEventListener('hashchange', () => { const h = decodeURIComponent(location.hash.slice(1)); if (h) loadTree(h); });
 boot();
 })();
