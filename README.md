@@ -4,7 +4,7 @@ I got tired of clicking around the atlas tree trying to figure out the cheapest
 way to reach the notables I actually want, so I made this. You click the nodes
 you care about, and it works out the shortest tree that gets all of them.
 
-**Try it:** `https://YOUR-USERNAME.github.io/atlas-planner/`
+**Try it:** https://tecspoetools.github.io/atlas-planner/
 
 Built for the 3.30 atlas (150 points this league).
 
