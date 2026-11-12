@@ -20,11 +20,12 @@ size and so on; you pick them under *Plan → Path preferences*).
 each click takes the shortest path from what you already have, and clicking an
 allocated node refunds it along with anything that gets cut off.
 
-**Shows you the order to take things in.** The Plan tab lists your targets in
-the order you'd level them, with the exact point numbers (points 1–11, 12–19…).
-Drag them around to change the order. Step through it one target at a time with
-the ‹ › buttons (or the arrow keys), drag the *View at point* slider to any point
-count, and press `O` to put the numbers on the tree.
+**Shows you the order to take things in.** Step through your targets in the
+order you added them with the ‹ › buttons (or the arrow keys): each step shows
+the target and its exact points (points 1–11, 12–19…). Every step only takes
+nodes from the final tree, so you never refund anything on the way. Drag the
+*View at point* slider to any point count, and press `O` to put the numbers on
+the tree.
 
 **Choose-one notables work like in game.** Click one and pick the effect right
 there. The summary only shows the one you chose.

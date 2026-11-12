@@ -128,21 +128,6 @@ aside { width: 350px; flex: none; background: var(--panel); border-left: 1px sol
 .warn { color: var(--drop); font-size: .8rem; }
 
 /* plan list */
-.plan { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.plan li { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 8px; padding: 6px 6px 6px 4px; border: 1px solid var(--edge); border-radius: 4px; background: var(--panel2); cursor: grab; }
-.plan li.dragging { opacity: .4; }
-.plan li.over { border-color: var(--gold); }
-.plan li.cur { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); }
-.plan li.later { opacity: .55; }
-.plan .n { font-family: var(--display); font-weight: 700; font-size: .82rem; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
-.plan .nm { font-size: .85rem; min-width: 0; }
-.plan .nm b { font-weight: 500; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.plan .nm b.n-n { color: var(--notable); } .plan .nm b.n-k { color: var(--keystone); }
-.plan .nm small { color: var(--muted); font-size: .72rem; font-variant-numeric: tabular-nums; }
-.plan .ctl { display: flex; gap: 2px; }
-.plan .ctl button { border: 0; padding: 2px 5px; color: var(--muted); font-size: .8rem; }
-.plan .ctl button:hover { color: var(--gold); }
-.plan li.bad .nm small { color: var(--drop); }
 details.prefs { margin-top: 18px; border-top: 1px solid var(--edge); padding-top: 10px; }
 details.prefs summary { cursor: pointer; font-family: var(--display); font-size: .76rem; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
 details.prefs p { font-size: .78rem; color: var(--muted); line-height: 1.45; margin: 8px 0; }
