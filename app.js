@@ -108,7 +108,7 @@ async function rebuild() {
   }
   const max = used();
   if (viewAt !== Infinity && viewAt > max) viewAt = Infinity;
-  save(); syncScrub(); renderSide(); renderBudget(); updateUndo(); draw();
+  save(); syncScrub(); renderSide(); renderBudget(); updateUndo(); renderCompare(); draw();
   if (hover) setHover(hover, lastPt, true);
 }
 function computeOrder() {
@@ -266,6 +266,113 @@ function linkUrl() {
   return base + '#' + serialize();
 }
 
+// ---------- saved trees, import, compare ----------
+const CMP_THERE = '#6fa8ff', CMP_HERE = '#ff9f5a';
+let compare = null; // { name, set: Set of allocated ids in the other tree }
+const loadSaved = () => { try { return JSON.parse(store.get('atlas-saved') || '[]'); } catch (e) { return []; } };
+const writeSaved = list => store.set('atlas-saved', JSON.stringify(list));
+
+// Official pathofexile.com tree links: base64url of a u32 version, class, ascendancy,
+// then (v4) a fullscreen byte and u16 node ids to the end, or (v5+) a count byte and that many u16 ids.
+function decodeOfficial(code) {
+  let b64 = code.replace(/-/g, '+').replace(/_/g, '/'); while (b64.length % 4) b64 += '=';
+  let bin; try { bin = atob(b64); } catch (e) { return null; }
+  const by = Uint8Array.from(bin, c => c.charCodeAt(0));
+  if (by.length < 7) return null;
+  const ver = ((by[0] << 24) | (by[1] << 16) | (by[2] << 8) | by[3]) >>> 0;
+  if (ver < 3 || ver > 6) return null;
+  const out = [];
+  if (ver <= 4) for (let i = 7; i + 1 < by.length; i += 2) out.push((by[i] << 8) | by[i + 1]);
+  else { const cnt = by[6]; for (let i = 0, o = 7; i < cnt && o + 1 < by.length; i++, o += 2) out.push((by[o] << 8) | by[o + 1]); }
+  return out.map(String);
+}
+// Turn a list of allocated ids into a manual-mode tree, in an order that stays connected.
+function fromAllocation(list) {
+  const want = new Set(list.filter(id => N[id] && N[id].t !== 'm')), seen = new Set(START), q = [...START], t = [];
+  for (let i = 0; i < q.length; i++) for (const b of ADJ[q[i]] || []) if (want.has(b) && !seen.has(b)) { seen.add(b); q.push(b); t.push(b); }
+  return { st: { t, b: [], c: {}, s: false }, dropped: [...want].filter(id => !seen.has(id) && !START.has(id)).length };
+}
+// Accepts a planner link (or just its code) or a pathofexile.com atlas tree link.
+function readLink(text) {
+  const raw = text.trim(); if (!raw) return { err: 'Paste a link first.' };
+  const off = raw.match(/(?:atlas-skill-tree|passive-skill-tree)\/(?:[^/?#]+\/)*([A-Za-z0-9_=-]{8,})/);
+  if (off) {
+    const list = decodeOfficial(off[1]);
+    if (!list) return { err: 'That pathofexile.com link could not be read.' };
+    const known = list.filter(id => N[id]).length;
+    if (!list.length || known < list.length * 0.8) return { err: 'That link does not look like a tree for this atlas version.' };
+    const r = fromAllocation(list);
+    return { st: r.st, note: r.dropped ? `${r.dropped} node${r.dropped > 1 ? 's were' : ' was'} not connected and left out.` : '' };
+  }
+  let code = raw.includes('#') ? raw.slice(raw.indexOf('#') + 1) : raw;
+  try { code = decodeURIComponent(code); } catch (e) {}
+  if (!/^([lrm]1|[pt])-/.test(code)) return { err: 'That is not a link from this planner or pathofexile.com.' };
+  const st = parse(code);
+  if (!st.t.length && !st.b.length) return { err: 'That link has no nodes in it.' };
+  return { st };
+}
+function applyState(st) {
+  commit(() => { targets = st.t; blocked = new Set(st.b); choice = st.c; if (st.s !== smart) setSmartUI(st.s); });
+}
+// Allocation a saved state produces: re-optimized for smart trees, as clicked for manual ones.
+async function allocationOf(st) {
+  if (!st.s) return connectedFrom(new Set(st.t.filter(t => !st.b.includes(t))));
+  const r = await runOpt(st.t, st.b, 300);
+  return new Set(r.tree);
+}
+async function startCompare(st, name) {
+  const set = await allocationOf(st);
+  compare = { name, set }; renderCompare(); draw();
+}
+function stopCompare() { compare = null; renderCompare(); draw(); }
+function renderCompare() {
+  const bar = $('cmpbar');
+  if (!compare) { bar.hidden = true; return; }
+  let here = 0, there = 0, both = 0;
+  for (const id of alloc) if (!START.has(id)) compare.set.has(id) ? both++ : here++;
+  for (const id of compare.set) if (!START.has(id) && !alloc.has(id)) there++;
+  bar.innerHTML = `<span>Comparing with <b>${esc(compare.name)}</b></span>` +
+    `<span class="c-here">${here} only here</span><span class="c-there">${there} only there</span><span>${both} shared</span>` +
+    `<button type="button" id="cmpstop">Stop</button>`;
+  bar.hidden = false;
+}
+$('cmpbar').addEventListener('click', e => { if (e.target.id === 'cmpstop') stopCompare(); });
+
+function renderSaved() {
+  const list = loadSaved(), el = $('savedlist');
+  el.innerHTML = list.length ? list.map((x, i) => `<li data-i="${i}"><span class="nm"><b>${esc(x.name)}</b><small>${x.pts} points · ${x.code[0] === 'm' ? 'manual' : 'smart'}</small></span>` +
+    `<span class="ctl"><button type="button" data-act="load">Load</button><button type="button" data-act="cmp">Compare</button><button type="button" data-act="del" aria-label="Delete ${esc(x.name)}">✕</button></span></li>`).join('')
+    : '<li class="empty">Nothing saved yet. Name the tree you have open and save it to come back to it later.</li>';
+}
+$('trees').onclick = () => { menu.hidden = true; renderSaved(); $('importmsg').textContent = ''; $('treesdlg').showModal(); };
+$('saveform').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = $('savename').value.trim(); if (!name) { $('savename').focus(); return; }
+  if (!targets.length) { say('Nothing to save yet'); return; }
+  const list = loadSaved(), i = list.findIndex(x => x.name.toLowerCase() === name.toLowerCase());
+  const entry = { name, code: serialize(), pts: used() };
+  if (i >= 0) list[i] = entry; else list.unshift(entry);
+  writeSaved(list); renderSaved(); $('savename').value = '';
+  say(i >= 0 ? `Updated "${name}"` : `Saved "${name}"`);
+});
+$('savedlist').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const list = loadSaved(), i = +b.closest('li').dataset.i, x = list[i]; if (!x) return;
+  if (b.dataset.act === 'del') { list.splice(i, 1); writeSaved(list); renderSaved(); say(`Deleted "${x.name}"`); return; }
+  $('treesdlg').close();
+  if (b.dataset.act === 'load') { applyState(parse(x.code)); say(`Loaded "${x.name}" · Ctrl+Z to undo`); }
+  if (b.dataset.act === 'cmp') startCompare(parse(x.code), x.name);
+});
+function importAction(cmp) {
+  const r = readLink($('importtxt').value), msg = $('importmsg');
+  if (r.err) { msg.textContent = r.err; msg.className = 'msg bad'; return; }
+  $('treesdlg').close(); $('importtxt').value = '';
+  if (cmp) startCompare(r.st, 'pasted link');
+  else { applyState(r.st); say((r.note ? r.note + ' ' : '') + 'Loaded · Ctrl+Z to undo'); }
+}
+$('importload').onclick = () => importAction(false);
+$('importcmp').onclick = () => importAction(true);
+
 // ---------- modifiers ----------
 const CATS = [
   ['Threads', /thread/i], ['Essence', /essence|imprisoned/i], ['Strongboxes', /strongbox|vaal vessel|apparatus/i], ['Shrines', /shrine/i],
@@ -393,18 +500,49 @@ function setTab(t) {
   for (const x of ['plan', 'mods']) { $('tab-' + x).setAttribute('aria-selected', x === t); $('pane-' + x).hidden = x !== t; }
 }
 function syncScrub() {
-  const s = $('at'), u = used();
+  const s = $('at'), u = used(), st = steps();
   s.max = u; s.value = viewAt === Infinity ? u : viewAt;
   $('atv').textContent = viewAt === Infinity ? 'all' : viewAt;
+  $('stprev').disabled = $('stnext').disabled = !st.length;
+  const info = $('stepinfo'), i = curStep();
+  info.hidden = viewAt === Infinity || i < 0;
+  if (!info.hidden) {
+    const g = st[i], n = g.t ? N[g.t] : null, a = g.from + 1, b = g.from + g.n;
+    info.innerHTML = `<span>Step ${i + 1} of ${st.length}</span> <b class="n-${n ? n.t : 'p'}">${n ? esc(n.nm) : 'Small passives'}</b> <small>${a === b ? `point ${a}` : `points ${a}–${b}`}</small>`;
+  }
+}
+// ---------- step through the allocation order ----------
+// A step is one target (or one run of small passives in manual mode) with the points it costs.
+const steps = () => groups.filter(g => g.n > 0);
+// The step whose points end at or after the current view (the last one when viewing everything).
+function curStep() {
+  const st = steps(); if (!st.length) return -1;
+  if (viewAt === Infinity) return st.length - 1;
+  const i = st.findIndex(g => g.from + g.n >= viewAt);
+  return i < 0 ? st.length - 1 : i;
+}
+// exact: keep v even at the last point, so the final step still shows as a step
+function setViewAt(v, exact) {
+  viewAt = v > used() || (v === used() && !exact) ? Infinity : Math.max(0, v);
+  syncScrub(); renderSide(); draw();
+}
+function step(dir) {
+  const st = steps(); if (!st.length) return;
+  const cur = viewAt === Infinity ? used() : viewAt, ends = st.map(g => g.from + g.n);
+  let i;
+  if (dir > 0) { i = viewAt === Infinity ? 0 : ends.findIndex(e => e > cur); if (i < 0) i = 0; }
+  else { i = -1; for (let j = ends.length - 1; j >= 0; j--) if (ends[j] < cur) { i = j; break; } if (i < 0) i = ends.length - 1; }
+  setViewAt(ends[i], true);
+  const t = st[i].t || order[ends[i] - 1];
+  if (t) panTo(t);
 }
 
 // side panel events
 $('tab-plan').onclick = () => setTab('plan');
 $('tab-mods').onclick = () => setTab('mods');
-$('at').addEventListener('input', e => {
-  const v = +e.target.value; viewAt = v >= used() ? Infinity : v;
-  $('atv').textContent = viewAt === Infinity ? 'all' : viewAt; renderSide(); draw();
-});
+$('at').addEventListener('input', e => setViewAt(+e.target.value));
+$('stprev').onclick = () => step(-1);
+$('stnext').onclick = () => step(1);
 $('pane-mods').addEventListener('change', e => {
   const t = e.target; if (!t.dataset.id) return;
   commit(() => { choice[t.dataset.id] = +t.dataset.i; });
@@ -453,6 +591,16 @@ function fit() {
   const s = Math.min(W / (x1 - x0 + pad * 2), H / (y1 - y0 + pad * 2));
   view.s = s; view.x = (x0 + x1) / 2 - W / 2 / s; view.y = (y0 + y1) / 2 - H / 2 / s; draw();
 }
+// Pan so the node is on screen, keeping the zoom level.
+function panTo(id) {
+  // on phones the plan sheet covers the bottom of the map: only use the part above it
+  let vh = H;
+  const sr = side.getBoundingClientRect(), cr = cv.getBoundingClientRect();
+  if (getComputedStyle(side).position === 'fixed' && sr.top < cr.bottom) vh = Math.max(120, sr.top - cr.top);
+  const n = N[id], m = 80 / view.s, x0 = view.x + m, y0 = view.y + m, x1 = view.x + W / view.s - m, y1 = view.y + vh / view.s - m;
+  if (n.x > x0 && n.x < x1 && n.y > y0 && n.y < y1) { draw(); return; }
+  view.x = n.x - W / 2 / view.s; view.y = n.y - vh / 2 / view.s; draw();
+}
 function centerOn(id) { const n = N[id]; view.s = Math.max(view.s, 0.16); view.x = n.x - W / 2 / view.s; view.y = n.y - H / 2 / view.s; draw(); }
 const radius = t => ({ p: 42, n: 60, k: 80, w: 90, m: 80, s: 110 })[t];
 function sprite(img, c, x, y, scale = 1) {
@@ -472,6 +620,7 @@ function render() {
   const ea = effAlloc();
   const dim = id => focusSet && !focusSet.has(id) && !ea.has(id);
   const T = smart ? tset() : new Set(groups.map(g => g.t).filter(Boolean));
+  const ci = viewAt === Infinity ? -1 : curStep(), stepT = ci >= 0 ? steps()[ci].t : null;
 
   if (focusSet) {
     const on = new Set([...focusSel].filter(f => f !== '*generic')); if (focusSel.has('*generic')) GENERIC_WHEELS.forEach(w => on.add(w));
@@ -517,6 +666,23 @@ function render() {
     ctx.stroke(); ctx.setLineDash([]);
   }
   ctx.globalAlpha = 1;
+  if (compare) {
+    ctx.strokeStyle = CMP_THERE; ctx.lineWidth = Math.max(10, 2 * px); ctx.setLineDash([50, 35]);
+    for (const e of D.edges) {
+      if (!compare.set.has(e[0]) || !compare.set.has(e[1]) || (alloc.has(e[0]) && alloc.has(e[1]))) continue;
+      const a = N[e[0]], b = N[e[1]];
+      if (!vis(a.x, a.y) && !vis(b.x, b.y)) continue;
+      ctx.beginPath();
+      if (e.length > 2) {
+        const [, , cx, cy, r] = e;
+        const a1 = Math.atan2(a.y - cy, a.x - cx), a2 = Math.atan2(b.y - cy, b.x - cx);
+        let d = a2 - a1; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+        ctx.arc(cx, cy, r, a1, a1 + d, d < 0);
+      } else { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
 
   const canAlloc = new Set();
   for (const id of ea) for (const b of ADJ[id] || []) if (!ea.has(b)) canAlloc.add(b);
@@ -535,7 +701,13 @@ function render() {
     sprite(imgs.fr, SPR.frame[fr], n.x, n.y);
     ctx.globalAlpha = 1;
     const ring = (col, off, w) => { ctx.strokeStyle = col; ctx.lineWidth = Math.max(w, w / 4 * px); ctx.beginPath(); ctx.arc(n.x, n.y, radius(n.t) + off, 0, 7); ctx.stroke(); };
-    if (T.has(id)) ring(unreachable.has(id) ? '#e0605a' : (hoverPlan === id ? '#ffffff' : '#f6e3a8'), 14, hoverPlan === id ? 22 : 12);
+    const hl = hoverPlan === id || stepT === id;
+    if (T.has(id)) ring(unreachable.has(id) ? '#e0605a' : (hl ? '#ffffff' : '#f6e3a8'), 14, hl ? 22 : 12);
+    if (compare) {
+      const there = compare.set.has(id), here = alloc.has(id);
+      if (there && !here) ring(CMP_THERE, 30, 14);
+      else if (here && !there && !START.has(id)) ring(CMP_HERE, 30, 14);
+    }
     if (add.has(id)) ring('#7fd6a0', 6, 10);
     if (drop.has(id)) ring('#e0605a', 6, 10);
     if (blocked.has(id)) {
@@ -801,6 +973,8 @@ document.addEventListener('keydown', e => {
   else if (k === 'o' || k === 'O') { showNums = !showNums; say(showNums ? 'Point numbers on (zoom in to see them)' : 'Point numbers off'); draw(); }
   else if (k === 'p' || k === 'P') setSmart(!smart);
   else if (k === '?') $('helpdlg').showModal();
+  else if (k === 'ArrowRight' || k === 'ArrowLeft') { if (document.querySelector('dialog[open]')) return; e.preventDefault(); step(k === 'ArrowRight' ? 1 : -1); }
+  else if (k === 'Home') { e.preventDefault(); setViewAt(Infinity); }
   else if (k === 'Escape') { closePicker(); if (q.value) { q.value = ''; runSearch(); } if (blockMode) setBlock(false); menu.hidden = true; fpop.hidden = true; }
 });
 

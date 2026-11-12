@@ -22,8 +22,9 @@ allocated node refunds it along with anything that gets cut off.
 
 **Shows you the order to take things in.** The Plan tab lists your targets in
 the order you'd level them, with the exact point numbers (points 1–11, 12–19…).
-Drag them around to change the order. The *View at point* slider shows what your
-tree looks like at 20, 40, 60 points, and `O` puts the numbers on the tree.
+Drag them around to change the order. Step through it one target at a time with
+the ‹ › buttons (or the arrow keys), drag the *View at point* slider to any point
+count, and press `O` to put the numbers on the tree.
 
 **Choose-one notables work like in game.** Click one and pick the effect right
 there. The summary only shows the one you chose.
@@ -36,6 +37,11 @@ mechanic lights up. *Focus* lets you switch on as many mechanics as you like
 (Shrines first, then roughly by how popular they are), or just the stuff that
 works in every map.
 
+**Saves, imports and compares trees.** *⋯ → Saved trees* keeps named trees in
+your browser, loads a link from this planner or a pathofexile.com atlas tree link,
+and overlays any of them on the tree you have open: orange for nodes only in yours,
+blue for nodes only in the other one.
+
 Also: right-click to block a node so paths avoid it, undo/redo, short share
 links, light/dark theme, and a single-file offline copy.
 
@@ -46,6 +52,7 @@ links, light/dark theme, and a single-file offline copy.
 | `/` | search | `F` | fit to screen |
 | `Ctrl+Z` / `Ctrl+Y` | undo / redo | `B` | block mode |
 | `P` | smart / manual pathing | `O` | point numbers |
+| `←` / `→` | step through the order | `Home` | show the whole tree |
 | `Esc` | close / clear | `?` | help |
 
 ## Running it yourself
@@ -72,6 +79,14 @@ python tools/make_standalone.py atlas-tree.html
 ```
 
 If the point total changed, update `LEAGUE_POINTS` at the top of `app.js`.
+Then check the path finder still finds the cheapest trees on the new data:
+
+```
+node tools/test_optimizer.js
+```
+
+It compares the planner against an exact solver on random sets of 2–9 targets
+and fails if any tree uses more points than it needs.
 Commit, push, done.
 
 If you'd rather not do that by hand, `tools/deploy-workflow.yml` is a GitHub
