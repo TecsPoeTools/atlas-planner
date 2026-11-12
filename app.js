@@ -272,41 +272,12 @@ let compare = null; // { name, set: Set of allocated ids in the other tree }
 const loadSaved = () => { try { return JSON.parse(store.get('atlas-saved') || '[]'); } catch (e) { return []; } };
 const writeSaved = list => store.set('atlas-saved', JSON.stringify(list));
 
-// Official pathofexile.com tree links: base64url of a u32 version, class, ascendancy,
-// then (v4) a fullscreen byte and u16 node ids to the end, or (v5+) a count byte and that many u16 ids.
-function decodeOfficial(code) {
-  let b64 = code.replace(/-/g, '+').replace(/_/g, '/'); while (b64.length % 4) b64 += '=';
-  let bin; try { bin = atob(b64); } catch (e) { return null; }
-  const by = Uint8Array.from(bin, c => c.charCodeAt(0));
-  if (by.length < 7) return null;
-  const ver = ((by[0] << 24) | (by[1] << 16) | (by[2] << 8) | by[3]) >>> 0;
-  if (ver < 3 || ver > 6) return null;
-  const out = [];
-  if (ver <= 4) for (let i = 7; i + 1 < by.length; i += 2) out.push((by[i] << 8) | by[i + 1]);
-  else { const cnt = by[6]; for (let i = 0, o = 7; i < cnt && o + 1 < by.length; i++, o += 2) out.push((by[o] << 8) | by[o + 1]); }
-  return out.map(String);
-}
-// Turn a list of allocated ids into a manual-mode tree, in an order that stays connected.
-function fromAllocation(list) {
-  const want = new Set(list.filter(id => N[id] && N[id].t !== 'm')), seen = new Set(START), q = [...START], t = [];
-  for (let i = 0; i < q.length; i++) for (const b of ADJ[q[i]] || []) if (want.has(b) && !seen.has(b)) { seen.add(b); q.push(b); t.push(b); }
-  return { st: { t, b: [], c: {}, s: false }, dropped: [...want].filter(id => !seen.has(id) && !START.has(id)).length };
-}
-// Accepts a planner link (or just its code) or a pathofexile.com atlas tree link.
+// Accepts a planner link, or just the code after the #.
 function readLink(text) {
   const raw = text.trim(); if (!raw) return { err: 'Paste a link first.' };
-  const off = raw.match(/(?:atlas-skill-tree|passive-skill-tree)\/(?:[^/?#]+\/)*([A-Za-z0-9_=-]{8,})/);
-  if (off) {
-    const list = decodeOfficial(off[1]);
-    if (!list) return { err: 'That pathofexile.com link could not be read.' };
-    const known = list.filter(id => N[id]).length;
-    if (!list.length || known < list.length * 0.8) return { err: 'That link does not look like a tree for this atlas version.' };
-    const r = fromAllocation(list);
-    return { st: r.st, note: r.dropped ? `${r.dropped} node${r.dropped > 1 ? 's were' : ' was'} not connected and left out.` : '' };
-  }
   let code = raw.includes('#') ? raw.slice(raw.indexOf('#') + 1) : raw;
   try { code = decodeURIComponent(code); } catch (e) {}
-  if (!/^([lrm]1|[pt])-/.test(code)) return { err: 'That is not a link from this planner or pathofexile.com.' };
+  if (!/^([lrm]1|[pt])-/.test(code)) return { err: 'That is not a link from this planner.' };
   const st = parse(code);
   if (!st.t.length && !st.b.length) return { err: 'That link has no nodes in it.' };
   return { st };
@@ -368,7 +339,7 @@ function importAction(cmp) {
   if (r.err) { msg.textContent = r.err; msg.className = 'msg bad'; return; }
   $('treesdlg').close(); $('importtxt').value = '';
   if (cmp) startCompare(r.st, 'pasted link');
-  else { applyState(r.st); say((r.note ? r.note + ' ' : '') + 'Loaded · Ctrl+Z to undo'); }
+  else { applyState(r.st); say('Loaded · Ctrl+Z to undo'); }
 }
 $('importload').onclick = () => importAction(false);
 $('importcmp').onclick = () => importAction(true);

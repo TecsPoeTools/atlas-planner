@@ -37,10 +37,9 @@ mechanic lights up. *Focus* lets you switch on as many mechanics as you like
 (Shrines first, then roughly by how popular they are), or just the stuff that
 works in every map.
 
-**Saves, imports and compares trees.** *⋯ → Saved trees* keeps named trees in
-your browser, loads a link from this planner or a pathofexile.com atlas tree link,
-and overlays any of them on the tree you have open: orange for nodes only in yours,
-blue for nodes only in the other one.
+**Saves and compares trees.** *⋯ → Saved trees* keeps named trees in your
+browser, loads shared links, and overlays any of them on the tree you have open:
+orange for nodes only in yours, blue for nodes only in the other one.
 
 Also: right-click to block a node so paths avoid it, undo/redo, short share
 links, light/dark theme, and a single-file offline copy.
