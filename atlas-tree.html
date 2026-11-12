@@ -17,7 +17,7 @@
   --bg: #e9e6df; --panel: #f6f4ef; --panel2: #ece8df; --edge: #cfc6b4;
   --text: #24211b; --muted: #6f6656; --gold: #8a6714; --gold-ink: #fff;
   --notable: #8a6714; --keystone: #b2541a; --magic: #3c3cb8; --add: #2e8a55; --drop: #c0392b; --wheel: #8a6714;
-  --map: #10121f;
+  --map: #090910;
   --glass: rgba(18,15,11,.62); --glassedge: rgba(200,162,74,.22);
   --tip-text: #d8cfbf; --tip-muted: #8f8573; --tip-magic: #9a9aff; --tip-notable: #e3c46e; --tip-keystone: #e8833a; --tip-wheel: #f2d48a; --tip-add: #7fd6a0; --tip-drop: #ef7a72;
   --display: "Cinzel", "Trajan Pro", Georgia, serif;
@@ -509,7 +509,7 @@ const SC = 2; // sprites are from the 0.5 zoom sheet: world size = px / 0.5
 const IMG_FILES = { on: 'atlas-skills', off: 'atlas-skills-disabled', mas: 'atlas-mastery', fr: 'atlas-frame', gb: 'atlas-group-background', bg: 'atlas-background' };
 // GGG's atlas background art, centred on the start node and scaled so its outer ring frames the tree like in game.
 const BG_SIZE = 14800;
-const BG_BRIGHT = 1.6; // the art is very dark; lift it for contrast
+const BG_BRIGHT = 0.85; // a touch darker than the art, so nodes and paths stay the brightest thing
 const BG_FILL = `rgb(${[10, 11, 20].map(c => Math.round(c * BG_BRIGHT)).join(',')})`; // colour at the art's edge
 // Points available this league. GGG's export still says 138; set to 0 to use the export's value.
 const LEAGUE_POINTS = 150;

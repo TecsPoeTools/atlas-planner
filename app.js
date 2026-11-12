@@ -8,7 +8,7 @@ const SC = 2; // sprites are from the 0.5 zoom sheet: world size = px / 0.5
 const IMG_FILES = { on: 'atlas-skills', off: 'atlas-skills-disabled', mas: 'atlas-mastery', fr: 'atlas-frame', gb: 'atlas-group-background', bg: 'atlas-background' };
 // GGG's atlas background art, centred on the start node and scaled so its outer ring frames the tree like in game.
 const BG_SIZE = 14800;
-const BG_BRIGHT = 1.6; // the art is very dark; lift it for contrast
+const BG_BRIGHT = 0.85; // a touch darker than the art, so nodes and paths stay the brightest thing
 const BG_FILL = `rgb(${[10, 11, 20].map(c => Math.round(c * BG_BRIGHT)).join(',')})`; // colour at the art's edge
 // Points available this league. GGG's export still says 138; set to 0 to use the export's value.
 const LEAGUE_POINTS = 150;
