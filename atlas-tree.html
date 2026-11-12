@@ -140,21 +140,6 @@ aside { width: 350px; flex: none; background: var(--panel); border-left: 1px sol
 .warn { color: var(--drop); font-size: .8rem; }
 
 /* plan list */
-.plan { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.plan li { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 8px; padding: 6px 6px 6px 4px; border: 1px solid var(--edge); border-radius: 4px; background: var(--panel2); cursor: grab; }
-.plan li.dragging { opacity: .4; }
-.plan li.over { border-color: var(--gold); }
-.plan li.cur { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); }
-.plan li.later { opacity: .55; }
-.plan .n { font-family: var(--display); font-weight: 700; font-size: .82rem; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
-.plan .nm { font-size: .85rem; min-width: 0; }
-.plan .nm b { font-weight: 500; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.plan .nm b.n-n { color: var(--notable); } .plan .nm b.n-k { color: var(--keystone); }
-.plan .nm small { color: var(--muted); font-size: .72rem; font-variant-numeric: tabular-nums; }
-.plan .ctl { display: flex; gap: 2px; }
-.plan .ctl button { border: 0; padding: 2px 5px; color: var(--muted); font-size: .8rem; }
-.plan .ctl button:hover { color: var(--gold); }
-.plan li.bad .nm small { color: var(--drop); }
 details.prefs { margin-top: 18px; border-top: 1px solid var(--edge); padding-top: 10px; }
 details.prefs summary { cursor: pointer; font-family: var(--display); font-size: .76rem; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); font-weight: 700; }
 details.prefs p { font-size: .78rem; color: var(--muted); line-height: 1.45; margin: 8px 0; }
@@ -324,7 +309,7 @@ dialog form { text-align: right; }
   <p><b>Click a target</b> to drop it. <b>Click a node on the path</b> to pin it. <b>Right-click</b> (or Block mode) blocks a node so paths avoid it.</p>
   <p>Prefer the in-game feel? Switch <b>Pathing</b> to <b>Manual</b>: each click takes the shortest path from what you have, and clicking an allocated node refunds it and anything cut off.</p>
   <p>Notables with a choice of effects open a picker when you click them; the summary shows only the effect you chose. Click the notable again to change it.</p>
-  <p>The <b>Plan</b> tab lists targets in the order you will level them. Drag or use the arrows to reorder; point numbers update. Use <b>‹ ›</b> next to <b>View at point</b> (or the arrow keys) to step through the tree one target at a time, or drag the slider to any point count.</p>
+  <p>Use <b>‹ ›</b> next to <b>View at point</b> (or the arrow keys) to step through your targets in the order you added them, with the points each one costs. Drag the slider to see the tree at any point count.</p>
   <p><b>⋯ → Saved trees</b> keeps named trees in this browser, loads shared links, and compares any of them with the tree you have open.</p>
   <table>
     <tr><td><kbd>/</kbd></td><td>Search</td><td><kbd>F</kbd></td><td>Fit to screen</td></tr>
@@ -738,10 +723,6 @@ picker.addEventListener('click', e => {
 });
 picker.addEventListener('pointerdown', e => e.stopPropagation());
 function toggleBlock(id) { const was = blockMode; blockMode = true; allocToggle(id); blockMode = was; }
-function moveTarget(from, to) {
-  if (to < 0 || to >= targets.length || from === to) return;
-  commit(() => { const [x] = targets.splice(from, 1); targets.splice(to, 0, x); });
-}
 
 // ---------- persistence & links ----------
 function serialize() {
@@ -914,37 +895,8 @@ function renderSide() {
 function renderPlan() {
   let h = '';
   if (unreachable.size) h += `<h3>Unreachable</h3><div class="warn">${[...unreachable].map(i => esc(N[i].nm)).join(', ')} cannot be reached with the current blocks.</div>`;
-  if (!targets.length) h += smart ? `<div class="empty">Click nodes on the atlas to add targets. They are listed here in the order you would level them, with the points each one costs.</div>`
+  if (!targets.length) h += smart ? `<div class="empty">Click nodes on the atlas to add targets. The cheapest tree that reaches all of them is rebuilt each time. Step through the order with ‹ › above.</div>`
     : `<div class="empty">Manual pathing: click a node to take the shortest path to it from what you have, like in game. Click an allocated node to refund it.</div>`;
-  else if (!smart) {
-    h += `<h3>Allocation order <span>as clicked</span></h3><ol class="plan" id="planlist">`;
-    let k = 0;
-    for (const g of groups) {
-      const a = g.from + 1, b = g.from + g.n, n = g.t ? N[g.t] : null;
-      const range = g.n === 1 ? `point ${a}` : `points ${a}–${b} · +${g.n}`;
-      const later = viewAt !== Infinity && a > viewAt, cur = viewAt !== Infinity && a <= viewAt && b >= viewAt;
-      h += `<li data-id="${g.t || ''}" class="manual${later ? ' later' : ''}${cur ? ' cur' : ''}">
-        <span class="n">${n ? ++k : '·'}</span>
-        <span class="nm"><b class="n-${n ? n.t : 'p'}">${n ? esc(n.nm) : 'Small passives'}</b><small>${range}</small></span>
-        <span class="ctl">${n ? `<button data-act="go" aria-label="Show ${esc(n.nm)} on the tree">◎</button><button data-act="refund" aria-label="Refund ${esc(n.nm)}">✕</button>` : ''}</span>
-      </li>`;
-    }
-    h += '</ol>';
-  } else {
-    h += `<h3>Allocation order <span>drag to reorder</span></h3><ol class="plan" id="planlist">`;
-    targets.forEach((t, i) => {
-      const g = groups[i] || { from: 0, n: 0 }, n = N[t];
-      const a = g.from + 1, b = g.from + g.n;
-      const range = unreachable.has(t) ? 'unreachable' : g.n === 0 ? 'already on path' : g.n === 1 ? `point ${a}` : `points ${a}–${b} · +${g.n}`;
-      const later = viewAt !== Infinity && a > viewAt, cur = viewAt !== Infinity && a <= viewAt && b >= viewAt && g.n;
-      h += `<li draggable="true" data-i="${i}" class="${later ? 'later' : ''}${cur ? ' cur' : ''}${unreachable.has(t) ? ' bad' : ''}">
-        <span class="n">${i + 1}</span>
-        <span class="nm"><b class="n-${n.t}">${esc(n.nm)}</b><small>${range}</small></span>
-        <span class="ctl"><button data-act="up" aria-label="Move ${esc(n.nm)} up">▲</button><button data-act="down" aria-label="Move ${esc(n.nm)} down">▼</button><button data-act="go" aria-label="Show ${esc(n.nm)} on the tree">◎</button><button data-act="del" aria-label="Remove ${esc(n.nm)}">✕</button></span>
-      </li>`;
-    });
-    h += '</ol>';
-  }
   // path preferences
   if (!smart) { $('pane-plan').innerHTML = h; return; }
   const smalls = {};
@@ -1041,29 +993,6 @@ $('pane-plan').addEventListener('change', e => {
   setupOptimizer(); rebuild();
 });
 $('pane-plan').addEventListener('toggle', e => { if (e.target.id === 'prefsbox') store.set('atlas-prefs-open', e.target.open ? '1' : '0'); }, true);
-$('pane-plan').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
-  const li = b.closest('li');
-  if (li.classList.contains('manual')) {
-    const id = li.dataset.id;
-    if (b.dataset.act === 'go') { centerOn(id); setHover(id, { x: W / 2, y: H / 2 }, true); }
-    if (b.dataset.act === 'refund') { const gone = new Set(refundSet(id)); commit(() => { targets = targets.filter(t => !gone.has(t)); }); }
-    return;
-  }
-  const i = +li.dataset.i, t = targets[i];
-  if (b.dataset.act === 'up') moveTarget(i, i - 1);
-  if (b.dataset.act === 'down') moveTarget(i, i + 1);
-  if (b.dataset.act === 'del') commit(() => { targets.splice(i, 1); });
-  if (b.dataset.act === 'go') { centerOn(t); setHover(t, { x: W / 2, y: H / 2 }, true); }
-});
-let dragFrom = null;
-$('pane-plan').addEventListener('dragstart', e => { const li = e.target.closest('li'); if (!li) return; dragFrom = +li.dataset.i; li.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
-$('pane-plan').addEventListener('dragover', e => { const li = e.target.closest('li'); if (!li || dragFrom == null) return; e.preventDefault(); document.querySelectorAll('.plan li.over').forEach(x => x.classList.remove('over')); li.classList.add('over'); });
-$('pane-plan').addEventListener('drop', e => { const li = e.target.closest('li'); if (!li || dragFrom == null) return; e.preventDefault(); const to = +li.dataset.i, f = dragFrom; dragFrom = null; moveTarget(f, to); });
-$('pane-plan').addEventListener('dragend', () => { dragFrom = null; document.querySelectorAll('.plan li').forEach(x => x.classList.remove('over', 'dragging')); });
-$('pane-plan').addEventListener('mouseover', e => { const li = e.target.closest('li[data-i], li[data-id]'); hoverPlan = li ? (li.dataset.id || targets[+li.dataset.i]) : null; draw(); });
-$('pane-plan').addEventListener('mouseleave', () => { hoverPlan = null; draw(); });
-let hoverPlan = null;
 const side = $('side');
 side.querySelector('.shd').addEventListener('click', e => { if (window.matchMedia('(max-width: 900px)').matches && !e.target.closest('input, button')) side.classList.toggle('open'); });
 
@@ -1189,7 +1118,7 @@ function render() {
     sprite(imgs.fr, SPR.frame[fr], n.x, n.y);
     ctx.globalAlpha = 1;
     const ring = (col, off, w) => { ctx.strokeStyle = col; ctx.lineWidth = Math.max(w, w / 4 * px); ctx.beginPath(); ctx.arc(n.x, n.y, radius(n.t) + off, 0, 7); ctx.stroke(); };
-    const hl = hoverPlan === id || stepT === id;
+    const hl = stepT === id;
     if (T.has(id)) ring(unreachable.has(id) ? '#e0605a' : (hl ? '#ffffff' : '#f6e3a8'), 14, hl ? 22 : 12);
     if (compare) {
       const there = compare.set.has(id), here = alloc.has(id);

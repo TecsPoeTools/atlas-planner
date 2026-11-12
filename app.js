@@ -221,10 +221,6 @@ picker.addEventListener('click', e => {
 });
 picker.addEventListener('pointerdown', e => e.stopPropagation());
 function toggleBlock(id) { const was = blockMode; blockMode = true; allocToggle(id); blockMode = was; }
-function moveTarget(from, to) {
-  if (to < 0 || to >= targets.length || from === to) return;
-  commit(() => { const [x] = targets.splice(from, 1); targets.splice(to, 0, x); });
-}
 
 // ---------- persistence & links ----------
 function serialize() {
@@ -397,37 +393,8 @@ function renderSide() {
 function renderPlan() {
   let h = '';
   if (unreachable.size) h += `<h3>Unreachable</h3><div class="warn">${[...unreachable].map(i => esc(N[i].nm)).join(', ')} cannot be reached with the current blocks.</div>`;
-  if (!targets.length) h += smart ? `<div class="empty">Click nodes on the atlas to add targets. They are listed here in the order you would level them, with the points each one costs.</div>`
+  if (!targets.length) h += smart ? `<div class="empty">Click nodes on the atlas to add targets. The cheapest tree that reaches all of them is rebuilt each time. Step through the order with ‹ › above.</div>`
     : `<div class="empty">Manual pathing: click a node to take the shortest path to it from what you have, like in game. Click an allocated node to refund it.</div>`;
-  else if (!smart) {
-    h += `<h3>Allocation order <span>as clicked</span></h3><ol class="plan" id="planlist">`;
-    let k = 0;
-    for (const g of groups) {
-      const a = g.from + 1, b = g.from + g.n, n = g.t ? N[g.t] : null;
-      const range = g.n === 1 ? `point ${a}` : `points ${a}–${b} · +${g.n}`;
-      const later = viewAt !== Infinity && a > viewAt, cur = viewAt !== Infinity && a <= viewAt && b >= viewAt;
-      h += `<li data-id="${g.t || ''}" class="manual${later ? ' later' : ''}${cur ? ' cur' : ''}">
-        <span class="n">${n ? ++k : '·'}</span>
-        <span class="nm"><b class="n-${n ? n.t : 'p'}">${n ? esc(n.nm) : 'Small passives'}</b><small>${range}</small></span>
-        <span class="ctl">${n ? `<button data-act="go" aria-label="Show ${esc(n.nm)} on the tree">◎</button><button data-act="refund" aria-label="Refund ${esc(n.nm)}">✕</button>` : ''}</span>
-      </li>`;
-    }
-    h += '</ol>';
-  } else {
-    h += `<h3>Allocation order <span>drag to reorder</span></h3><ol class="plan" id="planlist">`;
-    targets.forEach((t, i) => {
-      const g = groups[i] || { from: 0, n: 0 }, n = N[t];
-      const a = g.from + 1, b = g.from + g.n;
-      const range = unreachable.has(t) ? 'unreachable' : g.n === 0 ? 'already on path' : g.n === 1 ? `point ${a}` : `points ${a}–${b} · +${g.n}`;
-      const later = viewAt !== Infinity && a > viewAt, cur = viewAt !== Infinity && a <= viewAt && b >= viewAt && g.n;
-      h += `<li draggable="true" data-i="${i}" class="${later ? 'later' : ''}${cur ? ' cur' : ''}${unreachable.has(t) ? ' bad' : ''}">
-        <span class="n">${i + 1}</span>
-        <span class="nm"><b class="n-${n.t}">${esc(n.nm)}</b><small>${range}</small></span>
-        <span class="ctl"><button data-act="up" aria-label="Move ${esc(n.nm)} up">▲</button><button data-act="down" aria-label="Move ${esc(n.nm)} down">▼</button><button data-act="go" aria-label="Show ${esc(n.nm)} on the tree">◎</button><button data-act="del" aria-label="Remove ${esc(n.nm)}">✕</button></span>
-      </li>`;
-    });
-    h += '</ol>';
-  }
   // path preferences
   if (!smart) { $('pane-plan').innerHTML = h; return; }
   const smalls = {};
@@ -524,29 +491,6 @@ $('pane-plan').addEventListener('change', e => {
   setupOptimizer(); rebuild();
 });
 $('pane-plan').addEventListener('toggle', e => { if (e.target.id === 'prefsbox') store.set('atlas-prefs-open', e.target.open ? '1' : '0'); }, true);
-$('pane-plan').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
-  const li = b.closest('li');
-  if (li.classList.contains('manual')) {
-    const id = li.dataset.id;
-    if (b.dataset.act === 'go') { centerOn(id); setHover(id, { x: W / 2, y: H / 2 }, true); }
-    if (b.dataset.act === 'refund') { const gone = new Set(refundSet(id)); commit(() => { targets = targets.filter(t => !gone.has(t)); }); }
-    return;
-  }
-  const i = +li.dataset.i, t = targets[i];
-  if (b.dataset.act === 'up') moveTarget(i, i - 1);
-  if (b.dataset.act === 'down') moveTarget(i, i + 1);
-  if (b.dataset.act === 'del') commit(() => { targets.splice(i, 1); });
-  if (b.dataset.act === 'go') { centerOn(t); setHover(t, { x: W / 2, y: H / 2 }, true); }
-});
-let dragFrom = null;
-$('pane-plan').addEventListener('dragstart', e => { const li = e.target.closest('li'); if (!li) return; dragFrom = +li.dataset.i; li.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
-$('pane-plan').addEventListener('dragover', e => { const li = e.target.closest('li'); if (!li || dragFrom == null) return; e.preventDefault(); document.querySelectorAll('.plan li.over').forEach(x => x.classList.remove('over')); li.classList.add('over'); });
-$('pane-plan').addEventListener('drop', e => { const li = e.target.closest('li'); if (!li || dragFrom == null) return; e.preventDefault(); const to = +li.dataset.i, f = dragFrom; dragFrom = null; moveTarget(f, to); });
-$('pane-plan').addEventListener('dragend', () => { dragFrom = null; document.querySelectorAll('.plan li').forEach(x => x.classList.remove('over', 'dragging')); });
-$('pane-plan').addEventListener('mouseover', e => { const li = e.target.closest('li[data-i], li[data-id]'); hoverPlan = li ? (li.dataset.id || targets[+li.dataset.i]) : null; draw(); });
-$('pane-plan').addEventListener('mouseleave', () => { hoverPlan = null; draw(); });
-let hoverPlan = null;
 const side = $('side');
 side.querySelector('.shd').addEventListener('click', e => { if (window.matchMedia('(max-width: 900px)').matches && !e.target.closest('input, button')) side.classList.toggle('open'); });
 
@@ -672,7 +616,7 @@ function render() {
     sprite(imgs.fr, SPR.frame[fr], n.x, n.y);
     ctx.globalAlpha = 1;
     const ring = (col, off, w) => { ctx.strokeStyle = col; ctx.lineWidth = Math.max(w, w / 4 * px); ctx.beginPath(); ctx.arc(n.x, n.y, radius(n.t) + off, 0, 7); ctx.stroke(); };
-    const hl = hoverPlan === id || stepT === id;
+    const hl = stepT === id;
     if (T.has(id)) ring(unreachable.has(id) ? '#e0605a' : (hl ? '#ffffff' : '#f6e3a8'), 14, hl ? 22 : 12);
     if (compare) {
       const there = compare.set.has(id), here = alloc.has(id);
