@@ -474,8 +474,9 @@ function statLines(id) {
 // ---------- side panel ----------
 function renderBudget() {
   const u = used(), el = $('budget'), over = u - MAXP;
-  el.textContent = over > 0 ? `${over} point${over > 1 ? 's' : ''} over budget` : `${MAXP - u} points left`;
-  el.classList.toggle('over', over > 0);
+  // only shown as a warning: the panel already shows points used
+  el.textContent = over > 0 ? `${over} point${over > 1 ? 's' : ''} over budget` : '';
+  el.hidden = over <= 0; el.classList.toggle('over', over > 0);
   if (over > 0 && !renderBudget.warned) { say(`Over budget by ${over}: drop a target or block a node`); renderBudget.warned = true; }
   if (over <= 0) renderBudget.warned = false;
 }
@@ -533,14 +534,13 @@ function renderMods() {
 function syncScrub() {
   const s = $('at'), u = used(), st = steps();
   s.max = u; s.value = viewAt === Infinity ? u : viewAt;
-  $('atv').textContent = viewAt === Infinity ? 'all' : viewAt;
   $('stprev').disabled = $('stnext').disabled = !st.length;
   const info = $('stepinfo'), i = curStep();
-  info.hidden = viewAt === Infinity || i < 0;
-  if (!info.hidden) {
-    const g = st[i], n = g.t ? N[g.t] : null, a = g.from + 1, b = g.from + g.n;
-    info.innerHTML = `<span>Step ${i + 1} of ${st.length}</span> <b class="n-${n ? n.t : 'p'}">${n ? esc(n.nm) : 'Small passives'}</b> <small>${a === b ? `point ${a}` : `points ${a}–${b}`}</small>`;
-  }
+  info.hidden = !st.length;
+  if (info.hidden) return;
+  if (viewAt === Infinity) { info.innerHTML = `<span>All ${st.length} step${st.length > 1 ? 's' : ''}</span> <small>‹ › to step through</small>`; return; }
+  const g = st[i], n = g.t ? N[g.t] : null, a = g.from + 1, b = g.from + g.n, mid = viewAt < b;
+  info.innerHTML = `<span>Step ${i + 1} of ${st.length}</span> <b class="n-${n ? n.t : 'p'}">${n ? esc(n.nm) : 'Small passives'}</b> <small>${a === b ? `point ${a}` : `points ${a}–${b}`}${mid ? ` · at ${viewAt}` : ''}</small>`;
 }
 // ---------- step through the allocation order ----------
 // A step is one target (or one run of small passives in manual mode) with the points it costs.
