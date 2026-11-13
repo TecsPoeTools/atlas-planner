@@ -34,9 +34,12 @@ there. The summary only shows the one you chose.
 "+25% chance to contain a Strongbox" nodes show up as one +125% line.
 
 **Highlights mechanics.** Hover any wheel and every other wheel of the same
-mechanic lights up. *Focus* lets you switch on as many mechanics as you like
-(Shrines first, then roughly by how popular they are), or just the stuff that
-works in every map.
+mechanic lights up. *Focus* dims the rest of the map so the things you care
+about stand out. It has two lists, each item on its own: *Generic* (map-wide
+wheels like Maps or Threads, the common small path nodes, keystones) and *League
+mechanics* (Shrines first, then roughly by how popular they are). Search finds
+mechanics by name or by what their nodes do, so "currency" finds the ones with
+currency nodes.
 
 **Saves and compares trees.** *⋯ → Saved trees* keeps named trees in your
 browser, loads shared links, and overlays any of them on the tree you have open:
