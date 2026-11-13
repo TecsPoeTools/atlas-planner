@@ -4,7 +4,7 @@
 :root {
   --bg: #e9e6df; --panel: #f6f4ef; --panel2: #ece8df; --edge: #cfc6b4;
   --text: #24211b; --muted: #6f6656; --gold: #8a6714; --gold-ink: #fff;
-  --notable: #8a6714; --keystone: #b2541a; --magic: #3c3cb8; --add: #2e8a55; --drop: #c0392b; --wheel: #8a6714;
+  --notable: #8a6714; --keystone: #b2541a; --magic: #3c3cb8; --add: #2e8a55; --drop: #c0392b; --wheel: #8a6714; --focus: #7446c9; --focus-ink: #fff;
   --map: #090910;
   --glass: rgba(18,15,11,.62); --glassedge: rgba(200,162,74,.22);
   --tip-text: #d8cfbf; --tip-muted: #8f8573; --tip-magic: #9a9aff; --tip-notable: #e3c46e; --tip-keystone: #e8833a; --tip-wheel: #f2d48a; --tip-add: #7fd6a0; --tip-drop: #ef7a72;
@@ -15,14 +15,14 @@
   :root:not([data-theme="light"]) {
     --bg: #0b0a0c; --panel: #16130f; --panel2: #1d1913; --edge: #3a3226;
     --text: #d8cfbf; --muted: #8f8573; --gold: #c8a24a; --gold-ink: #16130f;
-    --notable: #e3c46e; --keystone: #e8833a; --magic: #8f8fff; --add: #7fd6a0; --drop: #e0605a; --wheel: #f2d48a;
+    --notable: #e3c46e; --keystone: #e8833a; --magic: #8f8fff; --add: #7fd6a0; --drop: #e0605a; --wheel: #f2d48a; --focus: #be96ff; --focus-ink: #16130f;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0b0a0c; --panel: #16130f; --panel2: #1d1913; --edge: #3a3226;
   --text: #d8cfbf; --muted: #8f8573; --gold: #c8a24a; --gold-ink: #16130f;
-  --notable: #e3c46e; --keystone: #e8833a; --magic: #8f8fff; --add: #7fd6a0; --drop: #e0605a; --wheel: #f2d48a;
+  --notable: #e3c46e; --keystone: #e8833a; --magic: #8f8fff; --add: #7fd6a0; --drop: #e0605a; --wheel: #f2d48a; --focus: #be96ff; --focus-ink: #16130f;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -44,8 +44,8 @@ h1 small { font-family: var(--body); font-weight: 400; color: var(--muted); font
 .seg button[aria-pressed=true] { background: var(--gold); color: var(--gold-ink); }
 .seglbl { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding: 0 8px; display: flex; align-items: center; border-right: 1px solid var(--edge); }
 .focuswrap { position: relative; }
-#focusbtn[aria-pressed=true] { border-color: var(--gold); color: var(--gold); }
-#focusbtn b { display: inline-block; min-width: 1.4em; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--gold); color: var(--gold-ink); font-size: .72rem; font-weight: 600; }
+#focusbtn[aria-pressed=true] { border-color: var(--focus); color: var(--focus); }
+#focusbtn b { display: inline-block; min-width: 1.4em; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--focus); color: var(--focus-ink); font-size: .72rem; font-weight: 600; }
 .fpop { position: absolute; top: calc(100% + 6px); right: 0; width: min(420px, calc(100vw - 32px)); max-height: min(70vh, 560px); overflow-y: auto; background: var(--panel); border: 1px solid var(--edge); border-radius: 6px; padding: 10px 12px 12px; box-shadow: 0 10px 30px rgba(0,0,0,.25); z-index: 8; display: flex; flex-direction: column; gap: 8px; }
 .fhd { display: flex; justify-content: space-between; align-items: center; font-family: var(--display); font-weight: 700; font-size: .76rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
 .fhd button { font-family: var(--body); text-transform: none; letter-spacing: 0; font-weight: 400; padding: 3px 9px; }
@@ -217,3 +217,5 @@ dialog form { text-align: right; }
 .saved .ctl button { padding: 3px 8px; font-size: .76rem; }
 @media (max-width: 520px) { .saved li { flex-wrap: wrap; } .saved .ctl { width: 100%; justify-content: flex-end; } }
 #prefsdlg .chips { margin: 4px 0 16px; }
+.fpop .chips label:has(input:checked) { border-color: var(--focus); color: var(--focus); }
+.fpop .chips input { accent-color: var(--focus); }

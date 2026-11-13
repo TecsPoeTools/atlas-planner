@@ -267,6 +267,8 @@ function linkUrl() {
 
 // ---------- saved trees, import, compare ----------
 const CMP_THERE = '#6fa8ff', CMP_HERE = '#ff9f5a';
+// Focus uses violet so it never reads as the gold of the allocated tree.
+const FOCUS_RGB = '190,150,255', FOCUS_HOVER_RGB = '222,200,255';
 let compare = null; // { name, set: Set of allocated ids in the other tree }
 const loadSaved = () => { try { return JSON.parse(store.get('atlas-saved') || '[]'); } catch (e) { return []; } };
 const writeSaved = list => store.set('atlas-saved', JSON.stringify(list));
@@ -561,7 +563,7 @@ function render() {
     ctx.fillStyle = 'rgba(3,3,7,0.66)'; ctx.beginPath(); ctx.rect(vx0, vy0, vx1 - vx0, vy1 - vy0);
     for (const w of lit) { const [, x, y, r] = WH[w]; ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); }
     ctx.fill('evenodd');
-    ctx.strokeStyle = 'rgba(242,212,138,0.7)'; ctx.lineWidth = Math.max(8, 1.6 * px);
+    ctx.strokeStyle = `rgba(${FOCUS_RGB},0.85)`; ctx.lineWidth = Math.max(8, 1.6 * px);
     for (const w of focusWheels) { const [, x, y, r] = WH[w]; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke(); }
   }
   // Hover: a wheel on the tree, or an item in the Focus list.
@@ -569,9 +571,9 @@ function render() {
   for (const w of pv) {
     const [, x, y, r] = WH[w];
     const g = ctx.createRadialGradient(x, y, r * .3, x, y, r);
-    g.addColorStop(0, 'rgba(242,212,138,0.14)'); g.addColorStop(1, 'rgba(242,212,138,0.02)');
+    g.addColorStop(0, `rgba(${FOCUS_RGB},0.14)`); g.addColorStop(1, `rgba(${FOCUS_RGB},0.02)`);
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,236,180,0.95)'; ctx.lineWidth = Math.max(10, 2.5 * px);
+    ctx.strokeStyle = `rgba(${FOCUS_HOVER_RGB},0.95)`; ctx.lineWidth = Math.max(10, 2.5 * px);
     ctx.setLineDash([60, 30]); ctx.stroke(); ctx.setLineDash([]);
   }
   for (const [gx, gy, im, ox, oy] of D.gb) if (vis(gx, gy)) {
@@ -634,7 +636,7 @@ function render() {
     // focused nodes outside a lit wheel (path nodes, keystones) get a soft glow behind them
     if ((focusSet && focusSet.has(id) && n.wh == null) || (focusPreview && focusPreview.path && focusPreview.ids.has(id))) {
       const r = Math.max(radius(n.t) * 2.3, 9 * px), g = ctx.createRadialGradient(n.x, n.y, r * .25, n.x, n.y, r); // at least ~9px on screen
-      g.addColorStop(0, 'rgba(242,212,138,0.6)'); g.addColorStop(1, 'rgba(242,212,138,0)');
+      g.addColorStop(0, `rgba(${FOCUS_RGB},0.7)`); g.addColorStop(1, `rgba(${FOCUS_RGB},0)`);
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 7); ctx.fill();
     }
     const sheet = { p: 'normalActive', n: 'notableActive', k: 'keystoneActive', w: 'wormholeActive' }[n.t];
