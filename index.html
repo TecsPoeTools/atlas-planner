@@ -14,6 +14,33 @@
 <body>
 <header>
   <h1>Atlas Tree <small id="ver">3.30</small></h1>
+  <div class="treewrap">
+    <div class="treegrp">
+      <button id="treebtn" type="button" aria-haspopup="true" aria-expanded="false" title="Your saved trees">
+        <span class="tlbl">Tree</span><b id="treename">Unsaved tree</b><i id="treedirty" title="Unsaved changes" hidden></i><span class="caret" aria-hidden="true">▾</span>
+      </button>
+      <button id="savebtn" type="button" title="Save this tree in your browser (Ctrl+S)">Save</button>
+      <button id="copy" type="button" title="Copy a link anyone can open">Share</button>
+    </div>
+    <div class="tpop" id="tpop" role="dialog" aria-label="Your trees" hidden>
+      <div class="fhd"><span>Your trees</span><button type="button" id="newtree">New tree</button></div>
+      <form id="saveform" class="trow">
+        <input id="savename" type="text" placeholder="Name this tree" maxlength="60" aria-label="Tree name" autocomplete="off">
+        <button type="submit" id="saveformbtn">Save</button>
+      </form>
+      <ul class="saved" id="savedlist"></ul>
+      <details class="importbox" id="importbox">
+        <summary>Open a shared link</summary>
+        <div class="trow">
+          <input id="importtxt" type="text" placeholder="Paste a link to a tree" aria-label="Tree link" spellcheck="false" autocomplete="off">
+          <button id="importload" type="button">Open</button>
+          <button id="importcmp" type="button">Compare</button>
+        </div>
+        <div id="importmsg" class="msg" role="status"></div>
+      </details>
+      <p class="hint">Trees are saved in this browser. <b>Share</b> copies a link that opens the tree anywhere, so use it to send a tree to someone or move it to another device.</p>
+    </div>
+  </div>
   <div class="seg" role="group" aria-label="Pathing" title="Smart: the cheapest tree is rebuilt for your targets. Manual: shortest path per click, like in game. (P)">
     <span class="seglbl">Pathing</span>
     <button id="p-smart" type="button" aria-pressed="true">Smart</button>
@@ -31,11 +58,9 @@
     <button id="undo" type="button" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
     <button id="redo" type="button" title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
     <button id="block" type="button" aria-pressed="false" title="While on, clicks block nodes so paths avoid them (B)">Block</button>
-    <button id="copy" type="button" title="Copy a link to this tree">Copy link</button>
     <button id="more" type="button" aria-haspopup="true" aria-expanded="false" title="More">⋯</button>
   </div>
   <div class="menu" id="menu" hidden>
-    <button id="trees" type="button">Saved trees &amp; import…</button>
     <button id="prefsbtn" type="button">Path preferences…</button>
     <button id="fit" type="button">Fit to screen <kbd>F</kbd></button>
     <button id="theme" type="button">Theme: System</button>
@@ -92,7 +117,7 @@
   <p><b>Focus</b> dims the map except the mechanics you pick, from a Generic list and a League mechanics list. Type to search them by name or by node text; Enter toggles the first match.</p>
   <p>Notables with a choice of effects open a picker when you click them; the summary shows only the effect you chose. Click the notable again to change it.</p>
   <p>Use <b>‹ ›</b> next to <b>View at point</b> (or the arrow keys) to step through your targets in the order you added them, with the points each one costs. Drag the slider to see the tree at any point count.</p>
-  <p><b>⋯ → Saved trees</b> keeps named trees in this browser, loads shared links, and compares any of them with the tree you have open.</p>
+  <p>The <b>tree name</b> at the top lists your saved trees: open, rename, share, compare or delete them, or open a link someone sent you. <b>Save</b> (<kbd>Ctrl</kbd>+<kbd>S</kbd>) keeps the tree in this browser; <b>Share</b> copies a link anyone can open.</p>
   <table>
     <tr><td><kbd>/</kbd></td><td>Search</td><td><kbd>F</kbd></td><td>Fit to screen</td></tr>
     <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Undo</td><td><kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Redo</td></tr>
@@ -107,24 +132,6 @@
   <h2 id="prefsh">Path preferences</h2>
   <p class="hint">When two routes cost the same number of points, smart pathing takes the one that passes through more of these small passives.</p>
   <div class="chips" id="prefchips"></div>
-  <form method="dialog"><button>Close</button></form>
-</dialog>
-
-<dialog id="treesdlg" aria-labelledby="treesh">
-  <h2 id="treesh">Saved trees</h2>
-  <form id="saveform" class="trow">
-    <input id="savename" type="text" placeholder="Name this tree" maxlength="60" aria-label="Tree name" autocomplete="off">
-    <button type="submit">Save current</button>
-  </form>
-  <ul class="saved" id="savedlist"></ul>
-  <h2>Load or compare a link</h2>
-  <p class="hint">Paste a link from this planner, for example one someone shared with you.</p>
-  <textarea id="importtxt" rows="3" aria-label="Tree link" spellcheck="false"></textarea>
-  <div class="trow">
-    <span id="importmsg" class="msg" role="status"></span>
-    <button id="importload" type="button">Load</button>
-    <button id="importcmp" type="button">Compare</button>
-  </div>
   <form method="dialog"><button>Close</button></form>
 </dialog>
 

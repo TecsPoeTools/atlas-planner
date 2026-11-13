@@ -111,7 +111,7 @@ async function rebuild() {
     alloc = new Set([...START, ...targets]); unreachable = new Set();
     computeManualOrder();
   }
-  save(); syncScrub(); renderSide(); renderBudget(); updateUndo(); renderCompare(); draw();
+  save(); syncScrub(); renderSide(); renderBudget(); updateUndo(); renderCompare(); renderTreeName(); draw();
   if (hover) setHover(hover, lastPt, true);
 }
 function computeOrder() {
@@ -310,40 +310,118 @@ function renderCompare() {
 }
 $('cmpbar').addEventListener('click', e => { if (e.target.id === 'cmpstop') stopCompare(); });
 
+// ---------- your trees (header) ----------
+// The open tree is either a saved one (curName) or unsaved; "shared" marks one opened from a link.
+let curName = store.get('atlas-current') || null, curShared = false;
+const savedEntry = name => name && loadSaved().find(x => x.name === name);
+function setCurrent(name, shared = false) {
+  curName = name; curShared = shared && !name;
+  store.set('atlas-current', name || '');
+  renderTreeName();
+}
+const isDirty = () => { const e = savedEntry(curName); return e ? e.code !== serialize() : targets.length > 0 || blocked.size > 0; };
+function renderTreeName() {
+  if (curName && !savedEntry(curName)) curName = null; // deleted elsewhere
+  $('treename').textContent = curName || (curShared ? 'Shared tree' : 'Unsaved tree');
+  $('treename').classList.toggle('unsaved', !curName);
+  $('treedirty').hidden = !(curName && isDirty());
+  $('savebtn').disabled = !!curName && !isDirty();
+}
+const ago = t => {
+  if (!t) return '';
+  const m = Math.round((Date.now() - t) / 60000);
+  return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
+};
+let renaming = -1;
 function renderSaved() {
   const list = loadSaved(), el = $('savedlist');
-  el.innerHTML = list.length ? list.map((x, i) => `<li data-i="${i}"><span class="nm"><b>${esc(x.name)}</b><small>${x.pts} points · ${x.code[0] === 'm' ? 'manual' : 'smart'}</small></span>` +
-    `<span class="ctl"><button type="button" data-act="load">Load</button><button type="button" data-act="cmp">Compare</button><button type="button" data-act="del" aria-label="Delete ${esc(x.name)}">✕</button></span></li>`).join('')
-    : '<li class="empty">Nothing saved yet. Name the tree you have open and save it to come back to it later.</li>';
+  el.innerHTML = list.length ? list.map((x, i) => {
+    const open = x.name === curName;
+    const nm = i === renaming
+      ? `<input type="text" class="rename" value="${esc(x.name)}" maxlength="60" aria-label="New name">`
+      : `<b>${esc(x.name)}</b>`;
+    return `<li data-i="${i}" class="${open ? 'open' : ''}"><span class="nm">${nm}<small>${x.pts} points · ${x.code[0] === 'm' ? 'manual' : 'smart'}${x.at ? ' · ' + ago(x.at) : ''}${open ? ' · <em>open</em>' : ''}</small></span>` +
+      `<span class="ctl">${open ? '' : '<button type="button" data-act="load">Open</button>'}<button type="button" data-act="share" title="Copy a link to this tree">Share</button><button type="button" data-act="cmp" title="Show the differences on the map">Compare</button>` +
+      `<button type="button" data-act="ren" aria-label="Rename ${esc(x.name)}" title="Rename">✎</button><button type="button" data-act="del" aria-label="Delete ${esc(x.name)}" title="Delete">✕</button></span></li>`;
+  }).join('')
+    : '<li class="empty">No saved trees yet. Name the tree you have open and press Save to keep it here.</li>';
+  const r = el.querySelector('input.rename'); if (r) { r.focus(); r.select(); }
 }
-$('trees').onclick = () => { menu.hidden = true; renderSaved(); $('importmsg').textContent = ''; $('treesdlg').showModal(); };
-$('saveform').addEventListener('submit', e => {
-  e.preventDefault();
-  const name = $('savename').value.trim(); if (!name) { $('savename').focus(); return; }
-  if (!targets.length) { say('Nothing to save yet'); return; }
+function saveTree(name) {
+  name = (name || '').trim();
+  if (!targets.length && !blocked.size) { say('Nothing to save yet: add some nodes first'); return false; }
+  if (!name) { openTrees(true); return false; }
   const list = loadSaved(), i = list.findIndex(x => x.name.toLowerCase() === name.toLowerCase());
-  const entry = { name, code: serialize(), pts: used() };
-  if (i >= 0) list[i] = entry; else list.unshift(entry);
-  writeSaved(list); renderSaved(); $('savename').value = '';
-  say(i >= 0 ? `Updated "${name}"` : `Saved "${name}"`);
+  const entry = { name: i >= 0 ? list[i].name : name, code: serialize(), pts: used(), at: Date.now() };
+  if (i >= 0) list.splice(i, 1);
+  list.unshift(entry); writeSaved(list);
+  setCurrent(entry.name); renderSaved();
+  say(i >= 0 ? `Saved "${entry.name}"` : `Saved "${entry.name}" · find it under the tree name`);
+  return true;
+}
+function shareLink(code) {
+  const url = location.href.split('#')[0] + '#' + code;
+  if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => say('Link copied · anyone with it can open this tree'), () => say('Could not copy: the link is in the address bar'));
+  else say('The link is in the address bar');
+  return url;
+}
+const tpop = $('tpop'), tbtn = $('treebtn');
+function openTrees(v, focusName) {
+  tpop.hidden = !v; tbtn.setAttribute('aria-expanded', v);
+  if (!v) { renaming = -1; return; }
+  fpop.hidden = true; fbtn.setAttribute('aria-expanded', false); menu.hidden = true;
+  renderSaved(); $('importmsg').textContent = '';
+  $('savename').value = curName || '';
+  if (focusName || !matchMedia('(pointer: coarse)').matches) { $('savename').focus(); $('savename').select(); }
+}
+tbtn.onclick = e => { e.stopPropagation(); openTrees(tpop.hidden); };
+tpop.addEventListener('click', e => e.stopPropagation());
+document.addEventListener('click', e => { if (!tpop.hidden && !tpop.contains(e.target) && e.target !== $('savebtn')) openTrees(false); });
+$('savebtn').onclick = e => { e.stopPropagation(); if (curName) saveTree(curName); else openTrees(true, true); };
+$('saveform').addEventListener('submit', e => { e.preventDefault(); if (saveTree($('savename').value)) openTrees(false); });
+$('newtree').onclick = () => {
+  if (targets.length || blocked.size) commit(() => { targets = []; blocked = new Set(); choice = {}; });
+  setCurrent(null); openTrees(false); say('New tree · Ctrl+Z brings the last one back');
+};
+function finishRename(inp) {
+  const list = loadSaved(), i = renaming, x = list[i]; renaming = -1;
+  const name = inp.value.trim();
+  if (x && name && name !== x.name) {
+    if (list.some((y, j) => j !== i && y.name.toLowerCase() === name.toLowerCase())) { say(`There is already a tree called "${name}"`); renderSaved(); return; }
+    const wasOpen = x.name === curName; x.name = name; writeSaved(list); if (wasOpen) setCurrent(name);
+  }
+  renderSaved();
+}
+$('savedlist').addEventListener('keydown', e => {
+  if (!e.target.classList.contains('rename')) return;
+  if (e.key === 'Enter') { e.preventDefault(); finishRename(e.target); }
+  if (e.key === 'Escape') { e.stopPropagation(); renaming = -1; renderSaved(); }
 });
+$('savedlist').addEventListener('focusout', e => { if (e.target.classList.contains('rename') && renaming >= 0) finishRename(e.target); });
 $('savedlist').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const list = loadSaved(), i = +b.closest('li').dataset.i, x = list[i]; if (!x) return;
-  if (b.dataset.act === 'del') { list.splice(i, 1); writeSaved(list); renderSaved(); say(`Deleted "${x.name}"`); return; }
-  $('treesdlg').close();
-  if (b.dataset.act === 'load') { applyState(parse(x.code)); say(`Loaded "${x.name}" · Ctrl+Z to undo`); }
-  if (b.dataset.act === 'cmp') startCompare(parse(x.code), x.name);
+  const act = b.dataset.act;
+  if (act === 'ren') { renaming = i; renderSaved(); return; }
+  if (act === 'share') { shareLink(x.code); return; }
+  if (act === 'del') {
+    if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = 'Delete?'; b.classList.add('danger'); setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = '✕'; b.classList.remove('danger'); } }, 3000); return; }
+    list.splice(i, 1); writeSaved(list); if (x.name === curName) setCurrent(null); renderSaved(); say(`Deleted "${x.name}"`); return;
+  }
+  openTrees(false);
+  if (act === 'load') { applyState(parse(x.code)); setCurrent(x.name); say(`Opened "${x.name}" · Ctrl+Z to undo`); }
+  if (act === 'cmp') startCompare(parse(x.code), x.name);
 });
 function importAction(cmp) {
   const r = readLink($('importtxt').value), msg = $('importmsg');
   if (r.err) { msg.textContent = r.err; msg.className = 'msg bad'; return; }
-  $('treesdlg').close(); $('importtxt').value = '';
-  if (cmp) startCompare(r.st, 'pasted link');
-  else { applyState(r.st); say('Loaded · Ctrl+Z to undo'); }
+  openTrees(false); $('importtxt').value = '';
+  if (cmp) startCompare(r.st, 'shared link');
+  else { applyState(r.st); setCurrent(null, true); say('Opened shared tree · Save it to keep it'); }
 }
 $('importload').onclick = () => importAction(false);
 $('importcmp').onclick = () => importAction(true);
+$('importtxt').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); importAction(false); } });
 
 // ---------- modifiers ----------
 const CATS = [
@@ -893,10 +971,8 @@ const blockBtn = $('block');
 function setBlock(v) { blockMode = v; blockBtn.setAttribute('aria-pressed', v); say(v ? 'Block mode on: clicks block nodes' : 'Block mode off'); if (hover) setHover(hover, lastPt, true); }
 blockBtn.onclick = () => setBlock(!blockMode);
 $('copy').onclick = () => {
-  const url = linkUrl();
   try { history.replaceState(null, '', '#' + serialize()); } catch (e) { location.hash = serialize(); }
-  if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => say('Link copied'), () => say('Link is in the address bar'));
-  else say('Link is in the address bar');
+  shareLink(serialize());
 };
 const menu = $('menu'), more = $('more');
 more.onclick = e => { e.stopPropagation(); menu.hidden = !menu.hidden; more.setAttribute('aria-expanded', !menu.hidden); };
@@ -946,6 +1022,10 @@ async function loadTree(fromHash) {
   alloc = new Set(START); hover = null; preview = null; undoStack = []; redoStack = []; viewAt = Infinity;
   const saved = store.get('atlas-league') || '';
   const st = parse(fromHash || saved); targets = st.t; blocked = new Set(st.b); choice = st.c; setSmartUI(st.s);
+  if (fromHash) {
+    const match = loadSaved().find(x => x.code === fromHash);
+    curName = match ? match.name : null; curShared = !match; store.set('atlas-current', curName || '');
+  }
   if (fromHash && saved && saved !== fromHash) {
     // opening a shared link: keep the viewer's own tree one undo away
     const mine = parse(saved);
@@ -963,6 +1043,8 @@ document.addEventListener('keydown', e => {
   const mod = e.ctrlKey || e.metaKey;
   if (mod && e.key.toLowerCase() === 'z' && !typing) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if (mod && e.key.toLowerCase() === 'y' && !typing) { e.preventDefault(); redo(); return; }
+  if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); if (curName) saveTree(curName); else openTrees(true, true); return; }
+  if (e.key === 'Escape' && !tpop.hidden) { openTrees(false); return; }
   if (typing || mod || e.altKey) return;
   const k = e.key;
   if (k === '/') { e.preventDefault(); q.focus(); q.select(); }
