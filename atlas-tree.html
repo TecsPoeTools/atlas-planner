@@ -380,6 +380,7 @@ dialog form { text-align: right; }
   <p><b>Click a target</b> to drop it. <b>Click a node on the path</b> to pin it. <b>Right-click</b> (or Block mode) blocks a node so paths avoid it.</p>
   <p>Prefer the in-game feel? Turn off <b>Smart path</b> for manual pathing: each click takes the shortest path from what you have, and clicking an allocated node refunds it and anything cut off.</p>
   <p><b>Focus</b> dims the map except the mechanics you pick, from a Generic list and a League mechanics list. Type to search them by name or by node text; Enter toggles the first match.</p>
+  <p><b>Click the centre of a wheel</b> (its mechanic icon) to take the whole wheel at once; click it again to drop it. Hover first to see the cost.</p>
   <p>Notables with a choice of effects open a picker when you click them; the summary shows only the effect you chose. Click the notable again to change it.</p>
   <p>Use <b>‹ ›</b> next to the slider (or the arrow keys) to step through your targets in the order you added them, with the points each one costs. Drag the slider to see the tree at any point count.</p>
   <p>The <b>tree name</b> at the top lists your saved trees: open, rename, share, compare or delete them, or open a link someone sent you. <b>Save</b> (<kbd>Ctrl</kbd>+<kbd>S</kbd>) keeps the tree in this browser; <b>Share</b> copies a link anyone can open.</p>
@@ -705,16 +706,49 @@ function computeManualOrder() {
   if (from < order.length) groups.push({ t: null, from, n: order.length - from });
 }
 // shortest path from the current allocation (manual mode)
-function manualPath(target) {
+function manualPath(target, from = alloc) {
   const prev = new Map(), q = [];
-  for (const id of alloc) { prev.set(id, null); q.push(id); }
+  for (const id of from) { prev.set(id, null); q.push(id); }
   for (let i = 0; i < q.length; i++) {
     const c = q[i]; if (c === target) break;
     for (const b of ADJ[c] || []) if (!prev.has(b) && !blocked.has(b) && N[b].t !== 'm') { prev.set(b, c); q.push(b); }
   }
   if (!prev.has(target)) return null;
-  const p = []; for (let c = target; c != null && !alloc.has(c); c = prev.get(c)) p.push(c);
+  const p = []; for (let c = target; c != null && !from.has(c); c = prev.get(c)) p.push(c);
   return p.reverse();
+}
+// ---------- whole wheels (click a wheel's centre) ----------
+const wheelOf = id => N[id] && N[id].t === 'm' ? N[id].wh : null;
+const wheelMembers = w => ids.filter(id => N[id].wh === w && N[id].t !== 'm' && !blocked.has(id));
+// The wheel's nodes not yet allocated, nearest to the current tree first, so the steps read naturally.
+function wheelMissing(w) {
+  const dist = new Map(), q = [...alloc]; alloc.forEach(a => dist.set(a, 0));
+  for (let i = 0; i < q.length; i++) for (const b of ADJ[q[i]] || []) if (!dist.has(b) && !blocked.has(b) && N[b].t !== 'm') { dist.set(b, dist.get(q[i]) + 1); q.push(b); }
+  return wheelMembers(w).filter(id => !alloc.has(id)).sort((a, b) => (dist.get(a) ?? 1e9) - (dist.get(b) ?? 1e9));
+}
+// Manual mode: path to each node in turn, like clicking them one by one.
+function manualWheelPath(w) {
+  const have = new Set(alloc), add = [];
+  for (const id of wheelMissing(w)) {
+    if (have.has(id)) continue;
+    const p = manualPath(id, have); if (!p) continue;
+    p.forEach(x => { have.add(x); add.push(x); });
+  }
+  return add;
+}
+function toggleWheel(w) {
+  const missing = wheelMissing(w), nm = WH[w][0];
+  if (!missing.length) { // whole wheel taken: drop its targets
+    const mem = new Set(wheelMembers(w));
+    if (!smart) { const gone = new Set(); for (const id of mem) if (alloc.has(id)) refundSet(id).forEach(x => gone.add(x)); commit(() => { targets = targets.filter(t => !gone.has(t)); }); }
+    else commit(() => { targets = targets.filter(t => !mem.has(t)); });
+    say(`Removed the ${nm} wheel · Ctrl+Z to undo`); return;
+  }
+  if (!smart) {
+    const add = manualWheelPath(w); if (!add.length) { say('That wheel cannot be reached with the current blocks'); return; }
+    commit(() => { targets.push(...add); });
+  } else commit(() => { targets.push(...missing.filter(id => !targets.includes(id))); });
+  say(`Took the whole ${nm} wheel · Ctrl+Z to undo`);
 }
 function refundSet(id) {
   const rest = new Set(targets.filter(t => t !== id)), keep = connectedFrom(rest);
@@ -723,6 +757,25 @@ function refundSet(id) {
 const previewCache = new Map(); let preview = null;
 function requestPreview(id) {
   if (previewCache.has(id)) { preview = previewCache.get(id); return; }
+  const w = wheelOf(id);
+  if (w != null) { // a wheel centre: preview taking every node in the wheel
+    const missing = wheelMissing(w);
+    if (!missing.length) { preview = { add: [], drop: [], size: alloc.size, ok: true, wheelDone: true }; previewCache.set(id, preview); return; }
+    if (!smart) {
+      const add = manualWheelPath(w);
+      preview = { add, drop: [], size: alloc.size + add.length, ok: add.length > 0 }; previewCache.set(id, preview); return;
+    }
+    preview = { pending: true, add: [], drop: [] };
+    const gen = latestTree;
+    runOpt([...targets, ...missing], [...blocked], 80).then(r => {
+      if (gen !== latestTree) return;
+      const tree = new Set(r.tree);
+      const res = { add: [...tree].filter(x => !alloc.has(x)), drop: [...alloc].filter(x => !tree.has(x)), size: tree.size, ok: !missing.some(m => r.miss.includes(m)) };
+      previewCache.set(id, res);
+      if (hover === id) { preview = res; draw(); showTip(id, lastPt); }
+    });
+    return;
+  }
   if (!smart) {
     const p = manualPath(id);
     preview = p ? { add: p, drop: [], size: alloc.size + p.length, ok: true } : { add: [], drop: [], size: alloc.size, ok: false };
@@ -741,7 +794,8 @@ function requestPreview(id) {
 
 // ---------- actions ----------
 function clickNode(id, pt) {
-  const n = N[id]; if (!n || START.has(id) || n.t === 'm') return;
+  const n = N[id]; if (!n || START.has(id)) return;
+  if (n.t === 'm') { if (!blockMode) toggleWheel(n.wh); return; }
   // "choose one" notables: pick the effect on the spot, like in game
   if (n.va && !blockMode && !(smart && alloc.has(id) && !targets.includes(id))) { openPicker(id, pt || lastPt); return; }
   allocToggle(id);
@@ -1218,6 +1272,15 @@ function render() {
     ctx.strokeStyle = `rgba(${FOCUS_HOVER_RGB},0.95)`; ctx.lineWidth = Math.max(10, 2.5 * px);
     ctx.setLineDash([60, 30]); ctx.stroke(); ctx.setLineDash([]);
   }
+  // hovering a wheel's centre: a solid ring says "this whole wheel"
+  const hw = hover ? wheelOf(hover) : null;
+  if (hw != null && !blockMode) {
+    const [, x, y, r] = WH[hw];
+    const g = ctx.createRadialGradient(x, y, r * .2, x, y, r);
+    g.addColorStop(0, 'rgba(127,214,160,0.16)'); g.addColorStop(1, 'rgba(127,214,160,0.03)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    ctx.strokeStyle = preview && preview.wheelDone ? '#e0605a' : '#7fd6a0'; ctx.lineWidth = Math.max(12, 3 * px); ctx.stroke();
+  }
   for (const [gx, gy, im, ox, oy] of D.gb) if (vis(gx, gy)) {
     ctx.globalAlpha = (focusSet || focusPreview) && !inLit(gx, gy) ? 0.12 : 0.5;
     sprite(imgs.gb, SPR.groupBackground[im], gx + ox * SC, gy + oy * SC);
@@ -1333,8 +1396,22 @@ function showTip(id, pt) {
     }
     if (n.rm && n.t === 'k') h += `<div class="rm">${n.rm.map(esc).join(' ')}</div>`;
   }
+  if (n.t === 'm') { // what's in the wheel
+    const mem = wheelMembers(n.wh), have = mem.filter(x => alloc.has(x)).length;
+    const kinds = { p: 0, n: 0, k: 0 }; mem.forEach(x => kinds[N[x].t] = (kinds[N[x].t] || 0) + 1);
+    const parts = [kinds.n && `${kinds.n} notable${kinds.n > 1 ? 's' : ''}`, kinds.k && `${kinds.k} keystone${kinds.k > 1 ? 's' : ''}`, kinds.p && `${kinds.p} small`].filter(Boolean);
+    h += `<div class="st">${mem.length} nodes: ${parts.join(', ')}${have ? ` · ${have} taken` : ''}</div>`;
+  }
   h += '</div>';
-  if (n.t !== 'm') {
+  if (n.t === 'm') {
+    let f;
+    if (blockMode) f = 'Turn off block mode to take the wheel';
+    else if (!preview || preview.pending) f = '…';
+    else if (preview.wheelDone) f = 'Whole wheel taken · <b>click to remove it</b>';
+    else if (!preview.ok) f = '<s>Not all of it can be reached</s>';
+    else f = `<b>Click to take the whole wheel · +${preview.size - alloc.size} pts</b>` + (preview.drop.length ? ` · reroutes <s>−${preview.drop.length}</s>` : '');
+    h += `<div class="ft">${f}</div>`;
+  } else {
     let f = '';
     const step = stepOf.get(id);
     if (blockMode) f = blocked.has(id) ? 'Blocked · click to unblock' : 'Click to block';
@@ -1359,8 +1436,9 @@ function setHover(id, pt, force) {
     const n = id ? N[id] : null;
     hoverMech = n && n.wh != null ? WH[n.wh][0] : null;
     preview = null;
-    if (n && n.t !== 'm' && n.t !== 's' && !alloc.has(id) && !blocked.has(id) && !blockMode) requestPreview(id);
-    cv.classList.toggle('over', !!n && n.t !== 'm');
+    if (n && n.t === 'm' && !blockMode) requestPreview(id);
+    else if (n && n.t !== 's' && !alloc.has(id) && !blocked.has(id) && !blockMode) requestPreview(id);
+    cv.classList.toggle('over', !!n && (n.t !== 'm' || !blockMode));
     draw();
   }
   showTip(id, pt);
