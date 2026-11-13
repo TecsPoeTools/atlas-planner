@@ -39,10 +39,14 @@ header {
 }
 h1 { font-family: var(--display); font-weight: 700; font-size: 1.08rem; letter-spacing: .06em; margin: 0; color: var(--gold); white-space: nowrap; }
 h1 small { font-family: var(--body); font-weight: 400; color: var(--muted); font-size: .74rem; letter-spacing: .02em; margin-left: 4px; }
-.seg { display: flex; border: 1px solid var(--edge); border-radius: 4px; overflow: hidden; }
-.seg button { border: 0; border-radius: 0; padding: 5px 10px; font-size: .8rem; }
-.seg button[aria-pressed=true] { background: var(--gold); color: var(--gold-ink); }
-.seglbl { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding: 0 8px; display: flex; align-items: center; border-right: 1px solid var(--edge); }
+/* pathing: one switch, on = smart, off = manual */
+#pathbtn { display: inline-flex; align-items: center; gap: 8px; padding: 5px 8px 5px 10px; }
+#pathbtn .plbl { font-size: .8rem; }
+#pathbtn[aria-checked=false] .plbl { color: var(--muted); }
+#pathbtn .sw { width: 26px; height: 14px; border-radius: 999px; background: var(--edge); position: relative; transition: background .15s; flex: none; }
+#pathbtn .sw i { position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--panel); transition: transform .15s; }
+#pathbtn[aria-checked=true] .sw { background: var(--gold); }
+#pathbtn[aria-checked=true] .sw i { transform: translateX(12px); background: var(--gold-ink); }
 .focuswrap { position: relative; }
 #focusbtn[aria-pressed=true] { border-color: var(--focus); color: var(--focus); }
 #focusbtn b { display: inline-block; min-width: 1.4em; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--focus); color: var(--focus-ink); font-size: .72rem; font-weight: 600; }
@@ -174,7 +178,6 @@ dialog form { text-align: right; }
   main { margin-bottom: calc(46px + env(safe-area-inset-bottom, 0px)); }
   #tip { left: 12px !important; right: 12px; width: auto; top: auto !important; bottom: 12px; background: rgba(18,15,11,.85); }
   #picker { left: 12px !important; right: 12px; width: auto; top: auto !important; bottom: 12px; }
-  .seglbl { display: none; }
 }
 @media (max-width: 560px) {
   .fpop { position: fixed; left: 16px; right: 16px; top: 120px; width: auto; }
@@ -257,4 +260,4 @@ dialog form { text-align: right; }
   .tpop { position: fixed; left: 12px; right: 12px; top: 76px; width: auto; max-height: calc(100vh - 140px); }
   header { column-gap: 8px; }
 }
-@media (max-width: 400px) { h1 small { display: none; } h1 { font-size: .98rem; } .seg button { padding: 5px 8px; } header { column-gap: 6px; } }
+@media (max-width: 400px) { h1 small { display: none; } h1 { font-size: .98rem; } header { column-gap: 6px; } }

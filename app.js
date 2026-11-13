@@ -996,7 +996,7 @@ $('theme').onclick = e => { e.stopPropagation(); const cur = store.get('atlas-th
 // pathing toggle
 function setSmartUI(v) {
   smart = v;
-  $('p-smart').setAttribute('aria-pressed', v); $('p-manual').setAttribute('aria-pressed', !v);
+  $('pathbtn').setAttribute('aria-checked', v);
   document.body.classList.toggle('manual', !v);
 }
 function setSmart(v) {
@@ -1012,8 +1012,7 @@ function setSmart(v) {
     setSmartUI(v);
   });
 }
-$('p-smart').onclick = () => setSmart(true);
-$('p-manual').onclick = () => setSmart(false);
+$('pathbtn').onclick = () => setSmart(!smart);
 async function loadTree(fromHash) {
   D = await loadData();
   N = D.nodes; ADJ = D.adj; ids = Object.keys(N); START = new Set(D.start); WH = D.wheels; SPR = D.spr; MAXP = LEAGUE_POINTS || D.pts;

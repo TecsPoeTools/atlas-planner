@@ -51,10 +51,14 @@ header {
 }
 h1 { font-family: var(--display); font-weight: 700; font-size: 1.08rem; letter-spacing: .06em; margin: 0; color: var(--gold); white-space: nowrap; }
 h1 small { font-family: var(--body); font-weight: 400; color: var(--muted); font-size: .74rem; letter-spacing: .02em; margin-left: 4px; }
-.seg { display: flex; border: 1px solid var(--edge); border-radius: 4px; overflow: hidden; }
-.seg button { border: 0; border-radius: 0; padding: 5px 10px; font-size: .8rem; }
-.seg button[aria-pressed=true] { background: var(--gold); color: var(--gold-ink); }
-.seglbl { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding: 0 8px; display: flex; align-items: center; border-right: 1px solid var(--edge); }
+/* pathing: one switch, on = smart, off = manual */
+#pathbtn { display: inline-flex; align-items: center; gap: 8px; padding: 5px 8px 5px 10px; }
+#pathbtn .plbl { font-size: .8rem; }
+#pathbtn[aria-checked=false] .plbl { color: var(--muted); }
+#pathbtn .sw { width: 26px; height: 14px; border-radius: 999px; background: var(--edge); position: relative; transition: background .15s; flex: none; }
+#pathbtn .sw i { position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--panel); transition: transform .15s; }
+#pathbtn[aria-checked=true] .sw { background: var(--gold); }
+#pathbtn[aria-checked=true] .sw i { transform: translateX(12px); background: var(--gold-ink); }
 .focuswrap { position: relative; }
 #focusbtn[aria-pressed=true] { border-color: var(--focus); color: var(--focus); }
 #focusbtn b { display: inline-block; min-width: 1.4em; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--focus); color: var(--focus-ink); font-size: .72rem; font-weight: 600; }
@@ -186,7 +190,6 @@ dialog form { text-align: right; }
   main { margin-bottom: calc(46px + env(safe-area-inset-bottom, 0px)); }
   #tip { left: 12px !important; right: 12px; width: auto; top: auto !important; bottom: 12px; background: rgba(18,15,11,.85); }
   #picker { left: 12px !important; right: 12px; width: auto; top: auto !important; bottom: 12px; }
-  .seglbl { display: none; }
 }
 @media (max-width: 560px) {
   .fpop { position: fixed; left: 16px; right: 16px; top: 120px; width: auto; }
@@ -269,7 +272,7 @@ dialog form { text-align: right; }
   .tpop { position: fixed; left: 12px; right: 12px; top: 76px; width: auto; max-height: calc(100vh - 140px); }
   header { column-gap: 8px; }
 }
-@media (max-width: 400px) { h1 small { display: none; } h1 { font-size: .98rem; } .seg button { padding: 5px 8px; } header { column-gap: 6px; } }
+@media (max-width: 400px) { h1 small { display: none; } h1 { font-size: .98rem; } header { column-gap: 6px; } }
 
 </style>
 </head>
@@ -303,11 +306,9 @@ dialog form { text-align: right; }
       <p class="hint">Trees are saved in this browser. <b>Share</b> copies a link that opens the tree anywhere, so use it to send a tree to someone or move it to another device.</p>
     </div>
   </div>
-  <div class="seg" role="group" aria-label="Pathing" title="Smart: the cheapest tree is rebuilt for your targets. Manual: shortest path per click, like in game. (P)">
-    <span class="seglbl">Pathing</span>
-    <button id="p-smart" type="button" aria-pressed="true">Smart</button>
-    <button id="p-manual" type="button" aria-pressed="false">Manual</button>
-  </div>
+  <button id="pathbtn" class="seg" type="button" role="switch" aria-checked="true" title="Smart pathing: the cheapest tree is rebuilt for your targets. Turn off for manual pathing: shortest path per click, like in game. (P)">
+    <span class="plbl">Smart path</span><span class="sw" aria-hidden="true"><i></i></span>
+  </button>
   <div class="search">
     <input id="q" type="search" placeholder="Search nodes  ( / )" autocomplete="off" aria-label="Search nodes">
     <span class="hits" id="hits"></span>
@@ -374,7 +375,7 @@ dialog form { text-align: right; }
   <h2>How it works</h2>
   <p><b>Click</b> a node to make it a target. The cheapest tree that reaches every target is rebuilt each time. When two routes cost the same, it takes the one with more of your preferred small passives (⋯ → Path preferences).</p>
   <p><b>Click a target</b> to drop it. <b>Click a node on the path</b> to pin it. <b>Right-click</b> (or Block mode) blocks a node so paths avoid it.</p>
-  <p>Prefer the in-game feel? Switch <b>Pathing</b> to <b>Manual</b>: each click takes the shortest path from what you have, and clicking an allocated node refunds it and anything cut off.</p>
+  <p>Prefer the in-game feel? Turn off <b>Smart path</b> for manual pathing: each click takes the shortest path from what you have, and clicking an allocated node refunds it and anything cut off.</p>
   <p><b>Focus</b> dims the map except the mechanics you pick, from a Generic list and a League mechanics list. Type to search them by name or by node text; Enter toggles the first match.</p>
   <p>Notables with a choice of effects open a picker when you click them; the summary shows only the effect you chose. Click the notable again to change it.</p>
   <p>Use <b>‹ ›</b> next to <b>View at point</b> (or the arrow keys) to step through your targets in the order you added them, with the points each one costs. Drag the slider to see the tree at any point count.</p>
@@ -1555,7 +1556,7 @@ $('theme').onclick = e => { e.stopPropagation(); const cur = store.get('atlas-th
 // pathing toggle
 function setSmartUI(v) {
   smart = v;
-  $('p-smart').setAttribute('aria-pressed', v); $('p-manual').setAttribute('aria-pressed', !v);
+  $('pathbtn').setAttribute('aria-checked', v);
   document.body.classList.toggle('manual', !v);
 }
 function setSmart(v) {
@@ -1571,8 +1572,7 @@ function setSmart(v) {
     setSmartUI(v);
   });
 }
-$('p-smart').onclick = () => setSmart(true);
-$('p-manual').onclick = () => setSmart(false);
+$('pathbtn').onclick = () => setSmart(!smart);
 async function loadTree(fromHash) {
   D = await loadData();
   N = D.nodes; ADJ = D.adj; ids = Object.keys(N); START = new Set(D.start); WH = D.wheels; SPR = D.spr; MAXP = LEAGUE_POINTS || D.pts;
