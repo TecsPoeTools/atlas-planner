@@ -15,6 +15,8 @@ and it becomes a target. Every time you add or drop one, the whole tree is
 rebuilt from scratch with as few points as possible. When two routes cost the
 same, it goes through the small nodes you find useful (map drop chance, pack
 size and so on; you pick them under *⋯ → Path preferences*).
+Click the centre of a wheel to take the whole wheel at once; hover it first to
+see what it costs.
 
 **Or path it yourself.** Turn off *Smart path* and it works like in game:
 each click takes the shortest path from what you already have, and clicking an
