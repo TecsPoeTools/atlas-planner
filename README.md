@@ -16,7 +16,7 @@ rebuilt from scratch with as few points as possible. When two routes cost the
 same, it goes through the small nodes you find useful (map drop chance, pack
 size and so on; you pick them under *⋯ → Path preferences*).
 
-**Or path it yourself.** Switch *Pathing* to *Manual* and it works like in game:
+**Or path it yourself.** Turn off *Smart path* and it works like in game:
 each click takes the shortest path from what you already have, and clicking an
 allocated node refunds it along with anything that gets cut off.
 
@@ -57,7 +57,7 @@ links, light/dark theme, and a single-file offline copy.
 |---|---|---|---|
 | `/` | search | `F` | fit to screen |
 | `Ctrl+Z` / `Ctrl+Y` | undo / redo | `B` | block mode |
-| `P` | smart / manual pathing | `O` | point numbers |
+| `P` | smart path on / off | `O` | point numbers |
 | `←` / `→` | step through the order | `Home` | show the whole tree |
 | `Ctrl+S` | save the tree | | |
 | `Esc` | close / clear | `?` | help |
