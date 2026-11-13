@@ -16,7 +16,7 @@
 :root {
   --bg: #e9e6df; --panel: #f6f4ef; --panel2: #ece8df; --edge: #cfc6b4;
   --text: #24211b; --muted: #6f6656; --gold: #8a6714; --gold-ink: #fff;
-  --notable: #8a6714; --keystone: #b2541a; --magic: #3c3cb8; --add: #2e8a55; --drop: #c0392b; --wheel: #8a6714;
+  --notable: #8a6714; --keystone: #b2541a; --magic: #3c3cb8; --add: #2e8a55; --drop: #c0392b; --wheel: #8a6714; --focus: #7446c9; --focus-ink: #fff;
   --map: #090910;
   --glass: rgba(18,15,11,.62); --glassedge: rgba(200,162,74,.22);
   --tip-text: #d8cfbf; --tip-muted: #8f8573; --tip-magic: #9a9aff; --tip-notable: #e3c46e; --tip-keystone: #e8833a; --tip-wheel: #f2d48a; --tip-add: #7fd6a0; --tip-drop: #ef7a72;
@@ -27,14 +27,14 @@
   :root:not([data-theme="light"]) {
     --bg: #0b0a0c; --panel: #16130f; --panel2: #1d1913; --edge: #3a3226;
     --text: #d8cfbf; --muted: #8f8573; --gold: #c8a24a; --gold-ink: #16130f;
-    --notable: #e3c46e; --keystone: #e8833a; --magic: #8f8fff; --add: #7fd6a0; --drop: #e0605a; --wheel: #f2d48a;
+    --notable: #e3c46e; --keystone: #e8833a; --magic: #8f8fff; --add: #7fd6a0; --drop: #e0605a; --wheel: #f2d48a; --focus: #be96ff; --focus-ink: #16130f;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0b0a0c; --panel: #16130f; --panel2: #1d1913; --edge: #3a3226;
   --text: #d8cfbf; --muted: #8f8573; --gold: #c8a24a; --gold-ink: #16130f;
-  --notable: #e3c46e; --keystone: #e8833a; --magic: #8f8fff; --add: #7fd6a0; --drop: #e0605a; --wheel: #f2d48a;
+  --notable: #e3c46e; --keystone: #e8833a; --magic: #8f8fff; --add: #7fd6a0; --drop: #e0605a; --wheel: #f2d48a; --focus: #be96ff; --focus-ink: #16130f;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -56,8 +56,8 @@ h1 small { font-family: var(--body); font-weight: 400; color: var(--muted); font
 .seg button[aria-pressed=true] { background: var(--gold); color: var(--gold-ink); }
 .seglbl { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding: 0 8px; display: flex; align-items: center; border-right: 1px solid var(--edge); }
 .focuswrap { position: relative; }
-#focusbtn[aria-pressed=true] { border-color: var(--gold); color: var(--gold); }
-#focusbtn b { display: inline-block; min-width: 1.4em; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--gold); color: var(--gold-ink); font-size: .72rem; font-weight: 600; }
+#focusbtn[aria-pressed=true] { border-color: var(--focus); color: var(--focus); }
+#focusbtn b { display: inline-block; min-width: 1.4em; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--focus); color: var(--focus-ink); font-size: .72rem; font-weight: 600; }
 .fpop { position: absolute; top: calc(100% + 6px); right: 0; width: min(420px, calc(100vw - 32px)); max-height: min(70vh, 560px); overflow-y: auto; background: var(--panel); border: 1px solid var(--edge); border-radius: 6px; padding: 10px 12px 12px; box-shadow: 0 10px 30px rgba(0,0,0,.25); z-index: 8; display: flex; flex-direction: column; gap: 8px; }
 .fhd { display: flex; justify-content: space-between; align-items: center; font-family: var(--display); font-weight: 700; font-size: .76rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
 .fhd button { font-family: var(--body); text-transform: none; letter-spacing: 0; font-weight: 400; padding: 3px 9px; }
@@ -229,6 +229,8 @@ dialog form { text-align: right; }
 .saved .ctl button { padding: 3px 8px; font-size: .76rem; }
 @media (max-width: 520px) { .saved li { flex-wrap: wrap; } .saved .ctl { width: 100%; justify-content: flex-end; } }
 #prefsdlg .chips { margin: 4px 0 16px; }
+.fpop .chips label:has(input:checked) { border-color: var(--focus); color: var(--focus); }
+.fpop .chips input { accent-color: var(--focus); }
 
 </style>
 </head>
@@ -778,6 +780,8 @@ function linkUrl() {
 
 // ---------- saved trees, import, compare ----------
 const CMP_THERE = '#6fa8ff', CMP_HERE = '#ff9f5a';
+// Focus uses violet so it never reads as the gold of the allocated tree.
+const FOCUS_RGB = '190,150,255', FOCUS_HOVER_RGB = '222,200,255';
 let compare = null; // { name, set: Set of allocated ids in the other tree }
 const loadSaved = () => { try { return JSON.parse(store.get('atlas-saved') || '[]'); } catch (e) { return []; } };
 const writeSaved = list => store.set('atlas-saved', JSON.stringify(list));
@@ -1072,7 +1076,7 @@ function render() {
     ctx.fillStyle = 'rgba(3,3,7,0.66)'; ctx.beginPath(); ctx.rect(vx0, vy0, vx1 - vx0, vy1 - vy0);
     for (const w of lit) { const [, x, y, r] = WH[w]; ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); }
     ctx.fill('evenodd');
-    ctx.strokeStyle = 'rgba(242,212,138,0.7)'; ctx.lineWidth = Math.max(8, 1.6 * px);
+    ctx.strokeStyle = `rgba(${FOCUS_RGB},0.85)`; ctx.lineWidth = Math.max(8, 1.6 * px);
     for (const w of focusWheels) { const [, x, y, r] = WH[w]; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke(); }
   }
   // Hover: a wheel on the tree, or an item in the Focus list.
@@ -1080,9 +1084,9 @@ function render() {
   for (const w of pv) {
     const [, x, y, r] = WH[w];
     const g = ctx.createRadialGradient(x, y, r * .3, x, y, r);
-    g.addColorStop(0, 'rgba(242,212,138,0.14)'); g.addColorStop(1, 'rgba(242,212,138,0.02)');
+    g.addColorStop(0, `rgba(${FOCUS_RGB},0.14)`); g.addColorStop(1, `rgba(${FOCUS_RGB},0.02)`);
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,236,180,0.95)'; ctx.lineWidth = Math.max(10, 2.5 * px);
+    ctx.strokeStyle = `rgba(${FOCUS_HOVER_RGB},0.95)`; ctx.lineWidth = Math.max(10, 2.5 * px);
     ctx.setLineDash([60, 30]); ctx.stroke(); ctx.setLineDash([]);
   }
   for (const [gx, gy, im, ox, oy] of D.gb) if (vis(gx, gy)) {
@@ -1145,7 +1149,7 @@ function render() {
     // focused nodes outside a lit wheel (path nodes, keystones) get a soft glow behind them
     if ((focusSet && focusSet.has(id) && n.wh == null) || (focusPreview && focusPreview.path && focusPreview.ids.has(id))) {
       const r = Math.max(radius(n.t) * 2.3, 9 * px), g = ctx.createRadialGradient(n.x, n.y, r * .25, n.x, n.y, r); // at least ~9px on screen
-      g.addColorStop(0, 'rgba(242,212,138,0.6)'); g.addColorStop(1, 'rgba(242,212,138,0)');
+      g.addColorStop(0, `rgba(${FOCUS_RGB},0.7)`); g.addColorStop(1, `rgba(${FOCUS_RGB},0)`);
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 7); ctx.fill();
     }
     const sheet = { p: 'normalActive', n: 'notableActive', k: 'keystoneActive', w: 'wormholeActive' }[n.t];
