@@ -554,24 +554,30 @@ function render() {
   const T = smart ? tset() : new Set(groups.map(g => g.t).filter(Boolean));
   const ci = viewAt === Infinity ? -1 : curStep(), stepT = ci >= 0 ? steps()[ci].t : null;
 
-  if (focusSet) {
-    const on = new Set([...focusSel].filter(f => f !== '*generic')); if (focusSel.has('*generic')) GENERIC_WHEELS.forEach(w => on.add(w));
-    for (const [nm, x, y, r] of WH) if (on.has(nm) && nm !== hoverMech) {
-      const g = ctx.createRadialGradient(x, y, r * .2, x, y, r);
-      g.addColorStop(0, 'rgba(242,212,138,0.16)'); g.addColorStop(1, 'rgba(242,212,138,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
-      ctx.strokeStyle = 'rgba(242,212,138,0.45)'; ctx.lineWidth = Math.max(8, 1.5 * px); ctx.stroke();
-    }
+  // Focus: darken the whole map except the focused wheels, which stay lit.
+  const inLit = (x, y) => { for (const w of lit) { const [, wx, wy, r] = WH[w]; if ((x - wx) ** 2 + (y - wy) ** 2 < r * r) return true; } return false; };
+  const lit = new Set([...focusWheels, ...(focusPreview ? focusPreview.wheels : [])]);
+  if (focusSet || focusPreview) {
+    ctx.fillStyle = 'rgba(3,3,7,0.66)'; ctx.beginPath(); ctx.rect(vx0, vy0, vx1 - vx0, vy1 - vy0);
+    for (const w of lit) { const [, x, y, r] = WH[w]; ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); }
+    ctx.fill('evenodd');
+    ctx.strokeStyle = 'rgba(242,212,138,0.7)'; ctx.lineWidth = Math.max(8, 1.6 * px);
+    for (const w of focusWheels) { const [, x, y, r] = WH[w]; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke(); }
   }
-  if (hoverMech) for (const [nm, x, y, r] of WH) if (nm === hoverMech) {
+  // Hover: a wheel on the tree, or an item in the Focus list.
+  const pv = focusPreview ? focusPreview.wheels : hoverMech ? WH.map((w, i) => w[0] === hoverMech ? i : -1).filter(i => i >= 0) : [];
+  for (const w of pv) {
+    const [, x, y, r] = WH[w];
     const g = ctx.createRadialGradient(x, y, r * .3, x, y, r);
-    g.addColorStop(0, 'rgba(242,212,138,0.20)'); g.addColorStop(1, 'rgba(242,212,138,0.04)');
+    g.addColorStop(0, 'rgba(242,212,138,0.14)'); g.addColorStop(1, 'rgba(242,212,138,0.02)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(242,212,138,0.85)'; ctx.lineWidth = Math.max(10, 2.5 * px);
+    ctx.strokeStyle = 'rgba(255,236,180,0.95)'; ctx.lineWidth = Math.max(10, 2.5 * px);
     ctx.setLineDash([60, 30]); ctx.stroke(); ctx.setLineDash([]);
   }
-  ctx.globalAlpha = focusSet ? 0.2 : 0.5;
-  for (const [gx, gy, im, ox, oy] of D.gb) if (vis(gx, gy)) sprite(imgs.gb, SPR.groupBackground[im], gx + ox * SC, gy + oy * SC);
+  for (const [gx, gy, im, ox, oy] of D.gb) if (vis(gx, gy)) {
+    ctx.globalAlpha = (focusSet || focusPreview) && !inLit(gx, gy) ? 0.12 : 0.5;
+    sprite(imgs.gb, SPR.groupBackground[im], gx + ox * SC, gy + oy * SC);
+  }
   ctx.globalAlpha = 1;
 
   const add = new Set(preview ? preview.add : []), drop = new Set(preview ? preview.drop : []);
@@ -622,9 +628,15 @@ function render() {
   for (const id of ids) {
     const n = N[id]; if (!vis(n.x, n.y)) continue;
     const on = ea.has(id), can = canAlloc.has(id) || add.has(id);
-    ctx.globalAlpha = dim(id) ? 0.22 : 1;
+    ctx.globalAlpha = dim(id) ? 0.3 : 1;
     if (n.t === 's') { ctx.globalAlpha = 1; sprite(imgs.gb, SPR.startNode.AtlasPassiveSkillScreenStart, n.x, n.y, 0.55); continue; }
     if (n.t === 'm') { ctx.globalAlpha *= 0.85; sprite(imgs.mas, SPR.mastery[n.ic], n.x, n.y); ctx.globalAlpha = 1; continue; }
+    // focused nodes outside a lit wheel (path nodes, keystones) get a soft glow behind them
+    if ((focusSet && focusSet.has(id) && n.wh == null) || (focusPreview && focusPreview.path && focusPreview.ids.has(id))) {
+      const r = Math.max(radius(n.t) * 2.3, 9 * px), g = ctx.createRadialGradient(n.x, n.y, r * .25, n.x, n.y, r); // at least ~9px on screen
+      g.addColorStop(0, 'rgba(242,212,138,0.6)'); g.addColorStop(1, 'rgba(242,212,138,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 7); ctx.fill();
+    }
     const sheet = { p: 'normalActive', n: 'notableActive', k: 'keystoneActive', w: 'wormholeActive' }[n.t];
     const ok = sprite(on ? imgs.on : imgs.off, SPR[sheet][n.t === 'w' ? 'Wormhole' : n.ic], n.x, n.y);
     if (!ok) { ctx.fillStyle = on ? '#c8a24a' : '#3c372d'; ctx.beginPath(); ctx.arc(n.x, n.y, radius(n.t) * .7, 0, 7); ctx.fill(); }
@@ -647,6 +659,7 @@ function render() {
       ctx.beginPath(); ctx.moveTo(n.x - r, n.y - r); ctx.lineTo(n.x + r, n.y + r); ctx.moveTo(n.x + r, n.y - r); ctx.lineTo(n.x - r, n.y + r); ctx.stroke();
     }
     if (hits.has(id)) ring('#6fe0ff', 24, 10);
+
     if (id === hover) ring('#fff3c9', 8, 6);
     if (nums && stepOf.has(id)) {
       const fs = Math.max(26, 11 * px), label = String(stepOf.get(id));
@@ -784,38 +797,89 @@ q.addEventListener('keydown', e => {
   hitIdx = (hitIdx + 1) % hitList.length; centerOn(hitList[hitIdx]);
   hitsEl.textContent = `${hitIdx + 1} of ${hitList.length}`; setHover(hitList[hitIdx], { x: W / 2, y: H / 2 }, true);
 });
+// Focus items: generic (map-wide) wheels, the common small path nodes by type, keystones,
+// then every league mechanic wheel. Each item knows its nodes and its wheels.
+let FOCUS = [], focusByKey = new Map(), focusWheels = new Set(), focusPreview = null;
+function buildFocusItems() {
+  const byWheel = new Map(), pathByName = new Map(), keystones = [];
+  for (const id of ids) {
+    const n = N[id];
+    if (n.wh != null) { const w = WH[n.wh][0]; if (!byWheel.has(w)) byWheel.set(w, []); byWheel.get(w).push(id); }
+    else if (n.t === 'p') { if (!pathByName.has(n.nm)) pathByName.set(n.nm, []); pathByName.get(n.nm).push(id); }
+    if (n.t === 'k') keystones.push(id);
+  }
+  const wheelIdx = nm => WH.map((w, i) => w[0] === nm ? i : -1).filter(i => i >= 0);
+  const item = (key, label, cat, list, wheels = []) => ({ key, label, cat, ids: new Set(list), wheels,
+    text: (label + ' ' + list.map(id => N[id].nm + ' ' + N[id].st.join(' ') + ' ' + (N[id].va || []).flat().join(' ')).join(' ')).toLowerCase() });
+  const items = [];
+  for (const w of GENERIC_WHEELS) if (byWheel.has(w)) items.push(item(w, w, 'gen', byWheel.get(w), wheelIdx(w)));
+  for (const [nm, list] of [...pathByName].filter(([, l]) => l.length > 1).sort((a, b) => b[1].length - a[1].length))
+    items.push(Object.assign(item('p:' + nm, nm, 'gen', list), { path: true }));
+  if (keystones.length) items.push(Object.assign(item('k', 'Keystones', 'gen', keystones), { path: true }));
+  const league = [...byWheel.keys()].filter(w => !GENERIC_WHEELS.includes(w));
+  const ranked = MECH_RANK.filter(n => league.includes(n)), rest = league.filter(n => !ranked.includes(n)).sort();
+  for (const w of [...ranked, ...rest]) items.push(item(w, w, 'league', byWheel.get(w), wheelIdx(w)));
+  FOCUS = items; focusByKey = new Map(items.map(x => [x.key, x]));
+  focusSel = new Set([...focusSel].filter(k => focusByKey.has(k))); // drops old keys like "*generic"
+}
 function buildFocus() {
-  const present = new Set(WH.map(w => w[0]));
-  const ranked = MECH_RANK.filter(n => present.has(n));
-  const rest = [...present].filter(n => !GENERIC_WHEELS.includes(n) && !ranked.includes(n)).sort();
-  const chip = (v, label, cls = '') => `<label class="${cls}"><input type="checkbox" data-f="${esc(v)}" ${focusSel.has(v) ? 'checked' : ''}>${esc(label)}</label>`;
-  $('fpop').innerHTML = `<div class="fhd"><span>Highlight on the tree</span><button type="button" id="fclear">Clear</button></div>
-    <div class="chips">${chip('*generic', 'All-map (generic)', 'gen')}</div>
-    <div class="fsub">Mechanics, most farmed first</div>
-    <div class="chips">${[...ranked, ...rest].map(n => chip(n, n)).join('')}</div>`;
+  buildFocusItems();
+  const chip = (x, i) => `<label data-i="${i}"><input type="checkbox" data-f="${esc(x.key)}" ${focusSel.has(x.key) ? 'checked' : ''}>${esc(x.label)}<em>${x.ids.size}</em><i class="instat">in stats</i></label>`;
+  const section = (cat, title, sub) => `<section class="fsec" data-cat="${cat}"><div class="fsub"><span>${title} <small>${sub}</small></span><button type="button" data-clear="${cat}" hidden>Clear</button></div>
+    <div class="chips">${FOCUS.map((x, i) => x.cat === cat ? chip(x, i) : '').join('')}</div></section>`;
+  fpop.innerHTML = `<div class="fhd"><span>Focus</span><button type="button" id="fclear">Clear all</button></div>
+    <input type="search" id="fq" placeholder="Search mechanics or stats…" autocomplete="off" aria-label="Search mechanics">
+    ${section('gen', 'Generic', 'map-wide, any strategy')}
+    ${section('league', 'League mechanics', 'most farmed first')}
+    <div class="fnone" hidden>Nothing matches.</div>`;
   applyFocus();
+}
+function filterFocus() {
+  const t = $('fq').value.trim().toLowerCase();
+  for (const lab of fpop.querySelectorAll('label[data-i]')) {
+    const x = FOCUS[+lab.dataset.i], byName = !t || x.label.toLowerCase().includes(t), byText = !byName && t.length >= 3 && x.text.includes(t);
+    lab.hidden = !(byName || byText); lab.classList.toggle('bytext', byText);
+  }
+  let any = false;
+  for (const sec of fpop.querySelectorAll('.fsec')) { const v = !!sec.querySelector('label[data-i]:not([hidden])'); sec.hidden = !v; any = any || v; }
+  fpop.querySelector('.fnone').hidden = any;
 }
 function applyFocus() {
   const n = focusSel.size;
   $('focusbtn').innerHTML = n ? `Focus <b>${n}</b>` : 'Focus';
   $('focusbtn').setAttribute('aria-pressed', n > 0);
   store.set('atlas-focus', [...focusSel].join('|'));
+  for (const cat of ['gen', 'league']) { const b = fpop.querySelector(`[data-clear="${cat}"]`); if (b) b.hidden = ![...focusSel].some(k => focusByKey.get(k).cat === cat); }
+  focusWheels = new Set();
   if (!n) { focusSet = null; draw(); return; }
-  const wheelOk = new Set([...focusSel].filter(f => f !== '*generic'));
-  const gen = focusSel.has('*generic');
-  if (gen) GENERIC_WHEELS.forEach(w => wheelOk.add(w));
-  focusSet = new Set(ids.filter(id => {
-    const nd = N[id];
-    if (nd.wh != null) return wheelOk.has(WH[nd.wh][0]);
-    return gen && GENERIC_SMALLS.includes(nd.nm);
-  }));
+  focusSet = new Set();
+  for (const k of focusSel) { const x = focusByKey.get(k); x.ids.forEach(id => focusSet.add(id)); x.wheels.forEach(w => focusWheels.add(w)); }
   draw();
 }
 const fpop = $('fpop'), fbtn = $('focusbtn');
-fbtn.onclick = e => { e.stopPropagation(); fpop.hidden = !fpop.hidden; fbtn.setAttribute('aria-expanded', !fpop.hidden); };
-fpop.addEventListener('click', e => { e.stopPropagation(); if (e.target.id === 'fclear') { focusSel.clear(); fpop.querySelectorAll('input').forEach(i => i.checked = false); applyFocus(); } });
+function openFocus(v) {
+  fpop.hidden = !v; fbtn.setAttribute('aria-expanded', v);
+  if (v && !matchMedia('(pointer: coarse)').matches) $('fq').focus();
+  if (!v && focusPreview) { focusPreview = null; draw(); }
+}
+fbtn.onclick = e => { e.stopPropagation(); openFocus(fpop.hidden); };
+fpop.addEventListener('click', e => {
+  e.stopPropagation();
+  const set = keep => { focusSel = new Set([...focusSel].filter(keep)); fpop.querySelectorAll('input[data-f]').forEach(i => i.checked = focusSel.has(i.dataset.f)); applyFocus(); };
+  if (e.target.id === 'fclear') set(() => false);
+  const c = e.target.dataset && e.target.dataset.clear; if (c) set(k => focusByKey.get(k).cat !== c);
+});
 fpop.addEventListener('change', e => { const f = e.target.dataset.f; if (!f) return; if (e.target.checked) focusSel.add(f); else focusSel.delete(f); applyFocus(); });
-document.addEventListener('click', e => { if (!fpop.hidden && !fpop.contains(e.target)) { fpop.hidden = true; fbtn.setAttribute('aria-expanded', false); } });
+fpop.addEventListener('input', e => { if (e.target.id === 'fq') filterFocus(); });
+fpop.addEventListener('keydown', e => {
+  if (e.target.id !== 'fq') return;
+  if (e.key === 'Escape') { e.stopPropagation(); if (e.target.value) { e.target.value = ''; filterFocus(); } else openFocus(false); return; }
+  if (e.key === 'Enter') { const first = fpop.querySelector('label[data-i]:not([hidden]) input'); if (first) { first.checked = !first.checked; first.dispatchEvent(new Event('change', { bubbles: true })); } }
+});
+// hovering an item previews it on the tree
+fpop.addEventListener('mouseover', e => { const lab = e.target.closest('label[data-i]'); const x = lab ? FOCUS[+lab.dataset.i] : null; if (x !== focusPreview) { focusPreview = x; draw(); } });
+fpop.addEventListener('mouseleave', () => { if (focusPreview) { focusPreview = null; draw(); } });
+document.addEventListener('click', e => { if (!fpop.hidden && !fpop.contains(e.target)) openFocus(false); });
 
 
 // ---------- header buttons ----------

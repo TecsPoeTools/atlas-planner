@@ -49,8 +49,17 @@ h1 small { font-family: var(--body); font-weight: 400; color: var(--muted); font
 .fpop { position: absolute; top: calc(100% + 6px); right: 0; width: min(420px, calc(100vw - 32px)); max-height: min(70vh, 560px); overflow-y: auto; background: var(--panel); border: 1px solid var(--edge); border-radius: 6px; padding: 10px 12px 12px; box-shadow: 0 10px 30px rgba(0,0,0,.25); z-index: 8; display: flex; flex-direction: column; gap: 8px; }
 .fhd { display: flex; justify-content: space-between; align-items: center; font-family: var(--display); font-weight: 700; font-size: .76rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
 .fhd button { font-family: var(--body); text-transform: none; letter-spacing: 0; font-weight: 400; padding: 3px 9px; }
-.fsub { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-top: 2px; }
-.chips label.gen { font-weight: 500; }
+.fsub { display: flex; justify-content: space-between; align-items: baseline; font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin: 4px 0 6px; }
+.fsub small { text-transform: none; letter-spacing: 0; font-size: .72rem; opacity: .8; margin-left: 4px; }
+.fsub button { font-size: .7rem; padding: 1px 8px; text-transform: none; letter-spacing: 0; }
+#fq { width: 100%; box-sizing: border-box; background: var(--panel2); border: 1px solid var(--edge); border-radius: 4px; padding: 6px 9px; font-size: .84rem; }
+#fq:focus { outline: none; border-color: var(--gold); }
+.fpop .chips label em { margin-left: 2px; }
+.fpop .chips label .instat { display: none; font-style: normal; font-size: .64rem; color: var(--muted); border-left: 1px solid var(--edge); padding-left: 5px; margin-left: 2px; }
+.fpop .chips label.bytext .instat { display: inline; }
+.fpop .chips label[hidden] { display: none; }
+.fpop section[hidden] { display: none; }
+.fnone { color: var(--muted); font-size: .8rem; padding: 4px 0; }
 .search { flex: 1 1 180px; display: flex; align-items: center; gap: 8px; min-width: 0; }
 input[type=search], select { min-width: 0; background: var(--bg); border: 1px solid var(--edge); border-radius: 4px; padding: 6px 9px; font-size: .86rem; }
 input[type=search] { flex: 1; }
