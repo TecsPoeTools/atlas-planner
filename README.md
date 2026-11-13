@@ -41,9 +41,12 @@ mechanics* (Shrines first, then roughly by how popular they are). Search finds
 mechanics by name or by what their nodes do, so "currency" finds the ones with
 currency nodes.
 
-**Saves and compares trees.** *⋯ → Saved trees* keeps named trees in your
-browser, loads shared links, and overlays any of them on the tree you have open:
-orange for nodes only in yours, blue for nodes only in the other one.
+**Saves, shares and manages your trees.** The tree name at the top is your list
+of saved trees: open, rename, share, compare or delete them, or open a link
+someone sent you. *Save* (`Ctrl+S`) keeps the tree in your browser, and a dot
+next to the name means it has unsaved changes. *Share* copies a short link that
+opens the tree anywhere. *Compare* overlays another tree on yours: orange for
+nodes only in yours, blue for nodes only in the other one.
 
 Also: right-click to block a node so paths avoid it, undo/redo, short share
 links, light/dark theme, and a single-file offline copy.
@@ -56,6 +59,7 @@ links, light/dark theme, and a single-file offline copy.
 | `Ctrl+Z` / `Ctrl+Y` | undo / redo | `B` | block mode |
 | `P` | smart / manual pathing | `O` | point numbers |
 | `←` / `→` | step through the order | `Home` | show the whole tree |
+| `Ctrl+S` | save the tree | | |
 | `Esc` | close / clear | `?` | help |
 
 ## Running it yourself

@@ -177,7 +177,6 @@ dialog form { text-align: right; }
   .seglbl { display: none; }
 }
 @media (max-width: 560px) {
-  .search { order: 5; flex-basis: 100%; }
   .fpop { position: fixed; left: 16px; right: 16px; top: 120px; width: auto; }
   .btns { margin-left: auto; }
 }
@@ -198,12 +197,8 @@ dialog form { text-align: right; }
 .cmpbar button { color: var(--tip-text); border-color: var(--glassedge); padding: 2px 10px; font-size: .74rem; border-radius: 999px; }
 
 /* saved trees dialog */
-#treesdlg { width: min(520px, calc(100vw - 32px)); }
-#treesdlg h2 + .hint { margin-top: -4px; }
 .trow { display: flex; gap: 6px; align-items: center; margin: 0 0 10px; }
 .trow input { flex: 1; min-width: 0; }
-#treesdlg input[type=text], #treesdlg textarea { background: var(--panel2); border: 1px solid var(--edge); border-radius: 4px; padding: 6px 8px; font-size: .85rem; }
-#treesdlg textarea { width: 100%; box-sizing: border-box; resize: vertical; margin-bottom: 6px; font-family: ui-monospace, monospace; font-size: .76rem; }
 .trow .msg { flex: 1; font-size: .78rem; color: var(--muted); }
 .trow .msg.bad { color: var(--drop); }
 .hint { color: var(--muted); font-size: .8rem; }
@@ -219,3 +214,47 @@ dialog form { text-align: right; }
 #prefsdlg .chips { margin: 4px 0 16px; }
 .fpop .chips label:has(input:checked) { border-color: var(--focus); color: var(--focus); }
 .fpop .chips input { accent-color: var(--focus); }
+
+/* your trees: header group + panel */
+.treewrap { position: relative; min-width: 0; }
+.treegrp { display: flex; align-items: stretch; min-width: 0; }
+.treegrp > button { border-radius: 0; margin-left: -1px; }
+.treegrp > button:first-child { border-radius: 4px 0 0 4px; margin-left: 0; }
+.treegrp > button:last-child { border-radius: 0 4px 4px 0; }
+.treegrp > button:hover:not(:disabled) { position: relative; z-index: 1; }
+#treebtn { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 260px; }
+#treebtn .tlbl { font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+#treebtn b { font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+#treebtn b.unsaved { color: var(--muted); font-style: italic; font-weight: 400; }
+#treebtn .caret { color: var(--muted); font-size: .7rem; }
+#treebtn[aria-expanded=true] { border-color: var(--gold); }
+#treedirty { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); flex: none; }
+#savebtn:not(:disabled) { color: var(--gold); }
+.tpop { position: absolute; top: calc(100% + 6px); left: 0; width: min(480px, calc(100vw - 32px)); max-height: min(75vh, 640px); overflow-y: auto; background: var(--panel); border: 1px solid var(--edge); border-radius: 6px; padding: 10px 12px 12px; box-shadow: 0 10px 30px rgba(0,0,0,.25); z-index: 9; display: flex; flex-direction: column; gap: 10px; }
+.tpop .trow { margin: 0; }
+.tpop input[type=text] { background: var(--panel2); border: 1px solid var(--edge); border-radius: 4px; padding: 6px 8px; font-size: .85rem; min-width: 0; flex: 1; }
+.tpop input[type=text]:focus { outline: none; border-color: var(--gold); }
+.tpop .saved { margin: 0; max-height: none; }
+.tpop .saved li.open { border-color: var(--gold); box-shadow: inset 3px 0 0 var(--gold); }
+.tpop .saved small em { font-style: normal; color: var(--gold); }
+.tpop .saved .ctl button.danger { color: var(--drop); border-color: var(--drop); }
+.tpop .saved input.rename { width: 100%; box-sizing: border-box; margin-bottom: 2px; }
+.importbox summary { cursor: pointer; font-size: .8rem; color: var(--muted); }
+.importbox[open] summary { margin-bottom: 8px; }
+.importbox .msg { font-size: .78rem; color: var(--drop); margin-top: 4px; }
+.importbox .msg:empty { display: none; }
+.tpop .hint { margin: 0; font-size: .76rem; line-height: 1.45; }
+@media (max-width: 560px) {
+  /* row 1: title, pathing, Focus, ⋯ · row 2: tree, Save, Share · row 3: search, undo, redo, Block */
+  .btns { display: contents; }
+  h1 { order: 1; } .seg { order: 2; } .focuswrap { order: 3; } #more { order: 3; margin-left: auto; }
+  .treewrap { order: 4; flex: 1 1 100%; }
+  .search { order: 5; flex: 1 1 120px; }
+  #undo, #redo, #block { order: 6; }
+  .treegrp { width: 100%; }
+  #treebtn { flex: 1; max-width: none; }
+  #treebtn .tlbl { display: none; }
+  .tpop { position: fixed; left: 12px; right: 12px; top: 76px; width: auto; max-height: calc(100vh - 140px); }
+  header { column-gap: 8px; }
+}
+@media (max-width: 400px) { h1 small { display: none; } h1 { font-size: .98rem; } .seg button { padding: 5px 8px; } header { column-gap: 6px; } }
